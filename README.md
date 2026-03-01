@@ -1,11 +1,23 @@
-<div align="center">
+# VPN Telegram Bot (Marzban/Xray)
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Профессиональный Telegram-бот для продажи VPN на базе Marzban.
+Поддерживает обход блокировок (DPI) 2026 года с использованием VLESS+xhttp+Reality, gRPC и Hysteria2.
 
-  <h1>Built with AI Studio</h2>
+## Особенности
+- 🚀 **Современный стек:** Python 3.11+, aiogram 3.13, SQLAlchemy 2.0, Redis.
+- 🛡 **Анти-шейр система:** Ограничение до 3 устройств на пользователя (анализ `access.log` Marzban).
+- 💳 **Оплата:** ЮKassa и Telegram Stars.
+- 📊 **Админ-панель:** Статистика онлайна, рассылки, управление пользователями.
+- 🐳 **Docker:** Полностью готов к деплою через Portainer.
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Инструкция по деплою через Portainer
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+1. Откройте Portainer, перейдите в раздел **Stacks**.
+2. Нажмите **Add stack**.
+3. Введите имя стека (например, `vpn-bot`).
+4. Выберите **Web editor** и вставьте содержимое `docker-compose.yml`.
+5. В разделе **Environment variables** добавьте переменные из `.env.example` и укажите свои значения.
+6. Убедитесь, что на сервере существует директория `/var/lib/marzban` (или измените путь в `docker-compose.yml`).
+7. Нажмите **Deploy the stack**.
 
-</div>
+Бот автоматически создаст таблицы в БД при первом запуске и начнет работу.
