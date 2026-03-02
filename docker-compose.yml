@@ -30,6 +30,22 @@ services:
   bot:
     build: .
     restart: always
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_ID=${ADMIN_ID}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=${DB_NAME}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MARZBAN_URL=${MARZBAN_URL}
+      - MARZBAN_USERNAME=${MARZBAN_USERNAME}
+      - MARZBAN_PASSWORD=${MARZBAN_PASSWORD}
+      - YOOKASSA_SHOP_ID=${YOOKASSA_SHOP_ID:-}
+      - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY:-}
+      - CRYPTO_PAY_TOKEN=${CRYPTO_PAY_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
