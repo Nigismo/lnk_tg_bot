@@ -30,6 +30,8 @@ services:
   bot:
     build: .
     restart: always
+    extra_hosts:                                  # <--- ДОБАВИТЬ ЭТО
+      - "host.docker.internal:host-gateway"
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - ADMIN_ID=${ADMIN_ID}
