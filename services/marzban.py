@@ -41,16 +41,16 @@ class MarzbanAPI:
                 return None
 
     async def create_user(self, username: str, expire_date: int, data_limit: int = 0):
-        """Создание пользователя в Marzban с нужными inbound'ами и лимитом устройств."""
-        # Настраиваем прокси: xhttp (primary), gRPC, Hysteria2
+        """Создание пользователя в Marzban с нужными inbound'ами."""
+        # Настраиваем прокси под наше ядро
         proxies = {
-            "vless": {
-                "flow": "xtls-rprx-vision"
-            }
+            "vless": {},
+            "shadowsocks": {}
         }
+        # Указываем ТОЧНЫЕ названия inbounds из Xray конфигурации
         inbounds = {
-            "vless": ["VLESS-xhttp-Reality", "VLESS-gRPC-Reality"],
-            "hysteria2": ["Hysteria2-inbound"]
+            "vless": ["VLESS REALITY"],
+            "shadowsocks": ["Shadowsocks TCP"]
         }
         
         payload = {
@@ -61,11 +61,10 @@ class MarzbanAPI:
             "data_limit": data_limit,
             "data_limit_reset_strategy": "no_reset",
             "status": "active",
-            "note": "Created via Telegram Bot",
-            "on_hold_timeout": "2026-01-01T00:00:00",
-            "on_hold_expire_duration": 0
+            "note": "Created via Telegram Bot"
         }
         
+        # Убрали on_hold параметры, так как они могут вызывать конфликты, если не поддерживаются версией
         result = await self._request("POST", "/api/user", json=payload)
         return result
 
