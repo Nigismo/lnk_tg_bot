@@ -12,10 +12,10 @@ def main_menu_kb() -> InlineKeyboardMarkup:
 def tariffs_kb() -> InlineKeyboardMarkup:
     """Клавиатура с тарифами."""
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="1 месяц - 350 ₽", callback_data="tariff_1")],
-        [InlineKeyboardButton(text="3 месяца - 890 ₽", callback_data="tariff_3")],
-        [InlineKeyboardButton(text="6 месяцев - 1590 ₽", callback_data="tariff_6")],
-        [InlineKeyboardButton(text="12 месяцев - 2790 ₽", callback_data="tariff_12")],
+        [InlineKeyboardButton(text="1 месяц - 100 ₽", callback_data="tariff_1")],
+        [InlineKeyboardButton(text="3 месяца - 270 ₽", callback_data="tariff_3")],
+        [InlineKeyboardButton(text="6 месяцев - 590 ₽", callback_data="tariff_6")],
+        [InlineKeyboardButton(text="12 месяцев - 1290 ₽", callback_data="tariff_12")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
     ])
 
@@ -45,9 +45,17 @@ def crypto_pay_kb(pay_url: str, invoice_id: int, tariff: str) -> InlineKeyboardM
 
 def vpn_links_kb(sub_url: str) -> InlineKeyboardMarkup:
     """Кнопки с конфигурациями."""
+    
+    # Склеиваем твой IP (или домен) с хвостиком подписки. 
+    # Если ты уже сделал домен в DuckDNS, впиши его вместо IP! 
+    # Например: base_url = "http://premium-connect.duckdns.org:8000"
+    base_url = "http://premium-connect.duckdns.org:8000" 
+    
+    # Получаем полноценную ссылку для Telegram
+    full_url = f"{base_url}{sub_url}"
+
+    # Я обновил названия кнопок под твои реальные мощные протоколы
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔗 Основная ссылка (xhttp)", url=sub_url)],
-        [InlineKeyboardButton(text="🛡 Запасная 1 (gRPC)", url=sub_url)],
-        [InlineKeyboardButton(text="⚡️ Запасная 2 (Hysteria2)", url=sub_url)],
-        [InlineKeyboardButton(text="❓ Не работает? Попробовать другую конфигурацию", callback_data="help_config")]
+        [InlineKeyboardButton(text="🔗 Ссылка на подписку (VLESS + SS)", url=full_url)],
+        [InlineKeyboardButton(text="❓ Как настроить подключение", callback_data="help_config")]
     ])
