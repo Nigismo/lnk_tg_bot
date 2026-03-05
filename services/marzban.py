@@ -49,7 +49,7 @@ class MarzbanAPI:
         }
         # Указываем ТОЧНЫЕ названия inbounds из Xray конфигурации
         inbounds = {
-            "vless": ["VLESS REALITY"],
+            "vless": ["VLESS REALITY", "VLESS XHTTP"],
             "shadowsocks": ["Shadowsocks TCP"]
         }
         
