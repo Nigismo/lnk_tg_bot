@@ -44,13 +44,11 @@ class MarzbanAPI:
         """Создание пользователя в Marzban с нужными inbound'ами."""
         # Настраиваем прокси под наше ядро
         proxies = {
-            "vless": {},
-            "shadowsocks": {}
+            "vless": {}
         }
         # Указываем ТОЧНЫЕ названия inbounds из Xray конфигурации
         inbounds = {
-            "vless": ["VLESS REALITY", "VLESS XHTTP"],
-            "shadowsocks": ["Shadowsocks TCP"]
+            "vless": ["VLESS REALITY", "VLESS XHTTP"]
         }
         
         payload = {
