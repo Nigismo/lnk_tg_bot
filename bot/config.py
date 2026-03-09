@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     YOOKASSA_SECRET_KEY: str = ""
     CRYPTO_PAY_TOKEN: str = ""
 
+    HAPP_PROVIDER_CODE: str = ""
+    HAPP_AUTH_KEY: str = ""
+
     MAX_CONCURRENT: int = 1600
 
     @property

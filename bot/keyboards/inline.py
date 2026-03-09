@@ -45,12 +45,12 @@ def crypto_pay_kb(pay_url: str, invoice_id: int, tariff: str) -> InlineKeyboardM
 
 def vpn_links_kb(sub_url: str) -> InlineKeyboardMarkup:
     """Кнопки с конфигурациями."""
-    
+
     # Склеиваем твой IP (или домен) с хвостиком подписки. 
     # Если ты уже сделал домен в DuckDNS, впиши его вместо IP! 
     # Например: base_url = "http://premium-connect.duckdns.org:8000"
     base_url = "https://premium-connect.duckdns.org:8000" 
-    
+
     # Получаем полноценную ссылку для Telegram
     full_url = f"{base_url}{sub_url}"
 

@@ -5,7 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from bot.config import config
-from bot.handlers import user, admin
+from bot.handlers import user, admin, payments
 from bot.middlewares.db import DbSessionMiddleware
 from database.models import Base
 from services.notifications import check_expiring_subscriptions
@@ -16,8 +16,37 @@ async def main():
     
     # Инициализация БД
     engine = create_async_engine(config.db_url, echo=False)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    
+    # Запуск миграций Alembic
+    from alembic.config import Config
+    from alembic import command
+    
+    alembic_cfg = Config("alembic.ini")
+    
+    async def check_and_run_migrations():
+        def run_upgrade():
+            command.upgrade(alembic_cfg, "head")
+            
+        def run_stamp():
+            command.stamp(alembic_cfg, "head")
+
+        async with engine.connect() as conn:
+            # Проверяем существование таблиц
+            def check_tables(connection):
+                from sqlalchemy import inspect
+                inspector = inspect(connection)
+                return inspector.get_table_names()
+                
+            tables = await conn.run_sync(check_tables)
+            
+            if "users" in tables and "alembic_version" not in tables:
+                logger.info("Таблицы уже существуют. Делаем stamp head...")
+                await asyncio.to_thread(run_stamp)
+            else:
+                logger.info("Применение миграций БД...")
+                await asyncio.to_thread(run_upgrade)
+                
+    await check_and_run_migrations()
         
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
     
@@ -31,6 +60,7 @@ async def main():
     # Регистрация роутеров
     dp.include_router(admin.router)
     dp.include_router(user.router)
+    dp.include_router(payments.router)
     
     # Запуск фоновых задач
     asyncio.create_task(check_expiring_subscriptions(bot, session_maker))

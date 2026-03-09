@@ -14,5 +14,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем весь код бота
 COPY . .
 
-# Запускаем бота (если main.py лежит внутри папки vpn_bot)
+# Запускаем бота
 CMD ["python", "-m", "bot.main"]

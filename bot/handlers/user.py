@@ -18,10 +18,10 @@ from loguru import logger
 router = Router()
 
 TARIFFS = {
-    "1": {"price": 350, "days": 30},
-    "3": {"price": 890, "days": 90},
-    "6": {"price": 1590, "days": 180},
-    "12": {"price": 2790, "days": 365}
+    "1": {"price": 100, "days": 30},
+    "3": {"price": 270, "days": 90},
+    "6": {"price": 590, "days": 180},
+    "12": {"price": 1290, "days": 365}
 }
 
 @router.message(CommandStart())
@@ -105,20 +105,18 @@ async def process_pay_sbp(callback: CallbackQuery):
         f"После перевода нажмите кнопку «Я оплатил»."
     )
     
-    qr_path = "assets/sbp_qr.png"
-    if os.path.exists(qr_path):
-        photo = FSInputFile(qr_path)
+    qr_url = "https://i.ibb.co/6c2m4vK1/sbp-qr.jpg"
+    
+    try:
         await callback.message.delete()
-        await callback.message.answer_photo(
-            photo=photo, 
-            caption=text, 
-            reply_markup=check_payment_kb("sbp", tariff_months)
-        )
-    else:
-        await callback.message.edit_text(
-            text + "\n\n*(QR-код временно недоступен, переведите по номеру +7 999 000-00-00)*",
-            reply_markup=check_payment_kb("sbp", tariff_months)
-        )
+    except Exception:
+        pass
+        
+    await callback.message.answer_photo(
+        photo=qr_url, 
+        caption=text, 
+        reply_markup=check_payment_kb("sbp", tariff_months)
+    )
 
 @router.callback_query(F.data.startswith("pay_crypto_"))
 async def process_pay_crypto(callback: CallbackQuery):
@@ -164,14 +162,6 @@ async def process_check_pay_crypto(callback: CallbackQuery, session: AsyncSessio
         await issue_vpn_access(callback.message, session, callback.from_user, tariff_months)
     else:
         await callback.answer("❌ Транзакция еще не подтверждена сетью. Подождите пару минут и нажмите снова.", show_alert=True)
-
-@router.callback_query(F.data.startswith("pay_stars_"))
-async def process_pay_stars(callback: CallbackQuery, session: AsyncSession):
-    """Имитация оплаты через Telegram Stars."""
-    tariff_months = callback.data.split("_")[2]
-    await callback.message.edit_text("⭐️ Обработка платежа через Telegram Stars...")
-    await asyncio.sleep(1) # Имитация задержки
-    await issue_vpn_access(callback.message, session, callback.from_user, tariff_months)
 
 @router.callback_query(F.data.startswith("check_pay_sbp_"))
 async def process_check_pay_sbp(callback: CallbackQuery, session: AsyncSession):
