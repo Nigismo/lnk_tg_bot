@@ -101,22 +101,31 @@ async def process_pay_sbp(callback: CallbackQuery):
     text = (
         f"📱 **Оплата по СБП**\n\n"
         f"К оплате: **{price} ₽**\n"
-        f"Отсканируйте QR-код ниже в приложении вашего банка или переведите по номеру телефона.\n\n"
+        f"Отсканируйте QR-код по ссылке ниже в приложении вашего банка или переведите по номеру телефона.\n\n"
+        f"🔗 [Ссылка на QR-код](https://i.ibb.co/6c2m4vK1/sbp-qr.jpg)\n\n"
         f"После перевода нажмите кнопку «Я оплатил»."
     )
     
-    qr_url = "https://i.ibb.co/6c2m4vK1/sbp-qr.jpg"
-    
     try:
-        await callback.message.delete()
-    except Exception:
-        pass
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=check_payment_kb("sbp", tariff_months),
+            disable_web_page_preview=False
+        )
+    except Exception as e:
+        logger.error(f"Ошибка редактирования сообщения СБП: {e}")
+        # Если edit_text не сработал (например, прошлое сообщение было с фото)
+        try:
+            await callback.message.delete()
+        except:
+            pass
+        await callback.message.answer(
+            text=text,
+            reply_markup=check_payment_kb("sbp", tariff_months),
+            disable_web_page_preview=False
+        )
         
-    await callback.message.answer_photo(
-        photo=qr_url, 
-        caption=text, 
-        reply_markup=check_payment_kb("sbp", tariff_months)
-    )
+    await callback.answer()
 
 @router.callback_query(F.data.startswith("pay_crypto_"))
 async def process_pay_crypto(callback: CallbackQuery):
