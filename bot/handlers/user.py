@@ -102,7 +102,7 @@ async def process_pay_sbp(callback: CallbackQuery):
         f"📱 **Оплата по СБП**\n\n"
         f"К оплате: **{price} ₽**\n"
         f"Отсканируйте QR-код по ссылке ниже в приложении вашего банка или переведите по номеру телефона.\n\n"
-        f"🔗 [Ссылка на QR-код](https://i.ibb.co/6c2m4vK1/sbp-qr.jpg)\n\n"
+        f"🔗 [Ссылка на QR-код](https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://t.me/your_bot_username)\n\n"
         f"После перевода нажмите кнопку «Я оплатил»."
     )
     
