@@ -47,6 +47,18 @@ async def process_buy_vpn(callback: CallbackQuery):
     """Показ тарифов."""
     await callback.message.edit_text("Выберите подходящий тариф:", reply_markup=tariffs_kb())
 
+@router.callback_query(F.data == "back_to_main")
+async def process_back_to_main(callback: CallbackQuery):
+    """Возврат в главное меню."""
+    text = (
+        "👋 Добро пожаловать в лучший VPN сервис!\n\n"
+        "🚀 **Стабильное соединение**\n"
+        "📺 **4K без лагов**\n"
+        "👥 Уже **15 710** пользователей выбрали нас.\n\n"
+        "Выберите действие ниже:"
+    )
+    await callback.message.edit_text(text, reply_markup=main_menu_kb())
+
 @router.callback_query(F.data.startswith("tariff_"))
 async def process_tariff_selection(callback: CallbackQuery):
     """Выбор тарифа и переход к оплате."""
