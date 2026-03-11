@@ -35,6 +35,13 @@ def check_payment_kb(method: str, tariff: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🔙 Отмена", callback_data="buy_vpn")]
     ])
 
+def admin_confirm_payment_kb(user_id: int, tariff: str) -> InlineKeyboardMarkup:
+    """Кнопки для админа: подтвердить или отклонить платеж."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Выдать VPN", callback_data=f"admin_confirm_pay_{user_id}_{tariff}")],
+        [InlineKeyboardButton(text="❌ Отклонить", callback_data=f"admin_reject_pay_{user_id}")]
+    ])
+
 def crypto_pay_kb(pay_url: str, invoice_id: int, tariff: str) -> InlineKeyboardMarkup:
     """Кнопки для оплаты через CryptoBot."""
     return InlineKeyboardMarkup(inline_keyboard=[

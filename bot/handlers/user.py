@@ -56,20 +56,13 @@ async def process_tariff_selection(callback: CallbackQuery):
         reply_markup=payment_methods_kb(tariff_months)
     )
 
-async def issue_vpn_access(bot_msg: Message, session: AsyncSession, tg_user, tariff_months: str):
+async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_months: str):
     """Общая функция выдачи VPN после успешной оплаты."""
     days = TARIFFS[tariff_months]["days"]
     
-    # Если предыдущее сообщение было с фото (СБП), edit_text не сработает напрямую.
-    # Поэтому удаляем старое сообщение и отправляем новое текстовое.
-    try:
-        await bot_msg.delete()
-    except Exception:
-        pass
-        
-    status_msg = await bot_msg.answer("⏳ Создание конфигурации VPN...")
+    status_msg = await bot.send_message(user_id, "⏳ Создание конфигурации VPN...")
     
-    username = f"tg_{tg_user.id}"
+    username = f"tg_{user_id}"
     expire_ts = int(time.time()) + (days * 86400)
     
     marzban_user = await marzban_api.create_user(username, expire_ts)
@@ -80,7 +73,7 @@ async def issue_vpn_access(bot_msg: Message, session: AsyncSession, tg_user, tar
     sub_url = marzban_user.get("subscription_url", "https://a2key.xyz/sub/example")
     
     end_date = datetime.utcnow() + timedelta(days=days)
-    await update_subscription(session, tg_user.id, end_date, username, sub_url)
+    await update_subscription(session, user_id, end_date, username, sub_url)
     
     instruction = (
         "✅ **Оплата прошла успешно! Ваш VPN готов.**\n\n"
@@ -101,26 +94,58 @@ async def process_pay_sbp(callback: CallbackQuery):
     text = (
         f"📱 **Оплата по СБП**\n\n"
         f"К оплате: **{price} ₽**\n"
-        f"Отсканируйте QR-код по ссылке ниже в приложении вашего банка или переведите по номеру телефона.\n\n"
-        f"🔗 [Ссылка на QR-код](https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://t.me/your_bot_username)\n\n"
+        f"Отсканируйте QR-код ниже в приложении вашего банка или переведите по номеру телефона.\n\n"
         f"После перевода нажмите кнопку «Я оплатил»."
     )
     
     try:
-        await callback.message.edit_text(
-            text=text,
-            reply_markup=check_payment_kb("sbp", tariff_months),
-            disable_web_page_preview=False
+        import qrcode
+        from io import BytesIO
+        from aiogram.types import BufferedInputFile
+        
+        # Ссылка для оплаты или номер телефона (замените на свои данные)
+        payment_data = "https://www.sberbank.ru/ru/choise_bank?requisiteNumber=79270920073&bankCode=100000000111"
+        
+        # Генерируем QR-код
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(payment_data)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Сохраняем в виртуальную память (BytesIO), а не на жесткий диск!
+        bio = BytesIO()
+        bio.name = 'qr.png'
+        img.save(bio, 'PNG')
+        bio.seek(0)
+        
+        photo = BufferedInputFile(bio.read(), filename="payment_qr.png")
+        
+        # Удаляем старое сообщение, так как мы не можем просто изменить текст на фото
+        try:
+            await callback.message.delete()
+        except:
+            pass
+            
+        await callback.message.answer_photo(
+            photo=photo,
+            caption=text,
+            reply_markup=check_payment_kb("sbp", tariff_months)
         )
     except Exception as e:
-        logger.error(f"Ошибка редактирования сообщения СБП: {e}")
-        # Если edit_text не сработал (например, прошлое сообщение было с фото)
+        logger.error(f"Ошибка отправки фото СБП: {e}")
+        # Если не получилось отправить фото, отправляем просто текст
         try:
             await callback.message.delete()
         except:
             pass
         await callback.message.answer(
-            text=text,
+            text=text + f"\n\n🔗 [Ссылка для оплаты]({payment_data})",
             reply_markup=check_payment_kb("sbp", tariff_months),
             disable_web_page_preview=False
         )
@@ -168,7 +193,7 @@ async def process_check_pay_crypto(callback: CallbackQuery, session: AsyncSessio
     
     is_paid = await crypto_pay.check_invoice(invoice_id)
     if is_paid:
-        await issue_vpn_access(callback.message, session, callback.from_user, tariff_months)
+        await issue_vpn_access(callback.bot, callback.from_user.id, session, tariff_months)
     else:
         await callback.answer("❌ Транзакция еще не подтверждена сетью. Подождите пару минут и нажмите снова.", show_alert=True)
 
@@ -184,8 +209,24 @@ async def process_check_pay_sbp(callback: CallbackQuery, session: AsyncSession):
     except Exception:
         pass
         
-    msg = await callback.message.answer("⏳ Проверяем поступление средств...")
-    await asyncio.sleep(2) # Имитация проверки
+    await callback.message.answer(
+        "Отлично! Твой платеж на проверке. Обычно это занимает от 1 до 5 минут. Мы пришлем доступ сюда."
+    )
     
-    # Имитируем успешную оплату
-    await issue_vpn_access(msg, session, callback.from_user, tariff_months)
+    # Отправляем уведомление админу
+    from bot.keyboards.inline import admin_confirm_payment_kb
+    admin_text = (
+        f"💰 Юзер @{callback.from_user.username or callback.from_user.id} нажал «Я оплатил».\n"
+        f"Тариф: {tariff_months} мес.\n"
+        f"Проверь карту. Выдать ему доступ?"
+    )
+    try:
+        await callback.bot.send_message(
+            chat_id=config.ADMIN_ID,
+            text=admin_text,
+            reply_markup=admin_confirm_payment_kb(callback.from_user.id, tariff_months)
+        )
+    except Exception as e:
+        logger.error(f"Не удалось отправить уведомление админу: {e}")
+
+    await callback.answer()

@@ -1,8 +1,10 @@
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
+from sqlalchemy.ext.asyncio import AsyncSession
 from bot.config import config
 from services.marzban import marzban_api
+from bot.handlers.user import issue_vpn_access
 
 router = Router()
 
@@ -47,3 +49,45 @@ async def cmd_stats(message: Message):
         text += "\n⚠️ **ВНИМАНИЕ: Нагрузка превышает 80%!**"
         
     await message.answer(text)
+
+@router.callback_query(F.data.startswith("admin_confirm_pay_"))
+async def process_admin_confirm_pay(callback: CallbackQuery, session: AsyncSession):
+    """Админ подтверждает платеж."""
+    if callback.from_user.id != config.ADMIN_ID:
+        return
+        
+    parts = callback.data.split("_")
+    user_id = int(parts[3])
+    tariff_months = parts[4]
+    
+    await callback.message.edit_text(
+        callback.message.text + "\n\n✅ **Платеж подтвержден! Доступ выдан.**"
+    )
+    
+    # Выдаем доступ пользователю
+    await issue_vpn_access(callback.bot, user_id, session, tariff_months)
+    await callback.answer("Доступ выдан!")
+
+@router.callback_query(F.data.startswith("admin_reject_pay_"))
+async def process_admin_reject_pay(callback: CallbackQuery):
+    """Админ отклоняет платеж."""
+    if callback.from_user.id != config.ADMIN_ID:
+        return
+        
+    parts = callback.data.split("_")
+    user_id = int(parts[3])
+    
+    await callback.message.edit_text(
+        callback.message.text + "\n\n❌ **Платеж отклонен.**"
+    )
+    
+    # Уведомляем пользователя
+    try:
+        await callback.bot.send_message(
+            chat_id=user_id,
+            text="❌ Ваш платеж не был подтвержден. Если вы считаете, что это ошибка, обратитесь в поддержку."
+        )
+    except Exception:
+        pass
+        
+    await callback.answer("Платеж отклонен.")

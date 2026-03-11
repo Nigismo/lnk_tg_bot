@@ -8,3 +8,5 @@ loguru
 httpx
 aiofiles
 python-dotenv
+qrcode
+pillow
