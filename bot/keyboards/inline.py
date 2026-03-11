@@ -1,4 +1,17 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types.web_app_info import WebAppInfo
+
+# Ссылка на ваше Web App (из AI Studio)
+WEB_APP_URL = "https://ais-pre-6qdqtvvvhw4kjqanercylm-214266535636.europe-west2.run.app/"
+
+def main_reply_kb() -> ReplyKeyboardMarkup:
+    """Нижняя клавиатура с Web App."""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🌐 Открыть Web App", web_app=WebAppInfo(url=WEB_APP_URL))]
+        ],
+        resize_keyboard=True
+    )
 
 def main_menu_kb() -> InlineKeyboardMarkup:
     """Главное меню."""

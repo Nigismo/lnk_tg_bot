@@ -9,7 +9,7 @@ from aiogram.filters import CommandStart
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.crud import get_user, create_user, update_subscription
-from bot.keyboards.inline import main_menu_kb, tariffs_kb, payment_methods_kb, vpn_links_kb, check_payment_kb, crypto_pay_kb
+from bot.keyboards.inline import main_menu_kb, tariffs_kb, payment_methods_kb, vpn_links_kb, check_payment_kb, crypto_pay_kb, main_reply_kb
 from services.marzban import marzban_api
 from services.payment import crypto_pay
 from bot.config import config
@@ -40,6 +40,9 @@ async def cmd_start(message: Message, session: AsyncSession):
         "👥 Уже **15 710** пользователей выбрали нас.\n\n"
         "Выберите действие ниже:"
     )
+    # Отправляем сначала reply клавиатуру с Web App
+    await message.answer("👇 Нажмите кнопку ниже, чтобы открыть красивое приложение:", reply_markup=main_reply_kb())
+    # Затем основное меню
     await message.answer(text, reply_markup=main_menu_kb())
 
 @router.callback_query(F.data == "buy_vpn")
@@ -242,3 +245,30 @@ async def process_check_pay_sbp(callback: CallbackQuery, session: AsyncSession):
         logger.error(f"Не удалось отправить уведомление админу: {e}")
 
     await callback.answer()
+
+@router.message(F.web_app_data)
+async def process_web_app_data(message: Message, session: AsyncSession):
+    """Обработка данных из Web App."""
+    data = message.web_app_data.data
+    if data.startswith("webapp_paid_sbp_"):
+        tariff_months = data.split("_")[-1]
+        
+        await message.answer(
+            "Отлично! Твой платеж через Web App на проверке. Обычно это занимает от 1 до 5 минут. Мы пришлем доступ сюда."
+        )
+        
+        # Отправляем уведомление админу
+        from bot.keyboards.inline import admin_confirm_payment_kb
+        admin_text = (
+            f"💰 Юзер @{message.from_user.username or message.from_user.id} нажал «Я оплатил» в Web App.\n"
+            f"Тариф: {tariff_months} мес.\n"
+            f"Проверь карту. Выдать ему доступ?"
+        )
+        try:
+            await message.bot.send_message(
+                chat_id=config.ADMIN_ID,
+                text=admin_text,
+                reply_markup=admin_confirm_payment_kb(message.from_user.id, tariff_months)
+            )
+        except Exception as e:
+            logger.error(f"Не удалось отправить уведомление админу: {e}")

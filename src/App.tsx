@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
 // ВСТАВЬ СЮДА СВОЮ ССЫЛКУ СБП ИЛИ НОМЕР ТЕЛЕФОНА
@@ -8,10 +8,33 @@ export default function App() {
   const [showPayment, setShowPayment] = useState(false);
   const [paymentSent, setPaymentSent] = useState(false);
 
+  useEffect(() => {
+    // Инициализация Telegram Web App
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+  }, []);
+
   const handleConfirmPayment = () => {
     setPaymentSent(true);
-    // Здесь можно добавить вызов tg.sendData() или API запроса к боту
-    // чтобы уведомить админа о том, что юзер нажал "Я оплатил"
+    const tg = (window as any).Telegram?.WebApp;
+    
+    // Отправляем данные обратно в бота (например, "оплачен тариф на 1 месяц")
+    // Внимание: sendData работает ТОЛЬКО если Web App открыт через Reply Keyboard (нижнюю кнопку)
+    setTimeout(() => {
+      try {
+        if (tg && tg.sendData) {
+          tg.sendData("webapp_paid_sbp_1");
+        } else if (tg) {
+          // Если открыто через инлайн-кнопку, просто закрываем
+          tg.close();
+        }
+      } catch (e) {
+        if (tg) tg.close();
+      }
+    }, 2000);
   };
 
   return (
