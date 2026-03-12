@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.crud import get_user, create_user, update_subscription
 from bot.keyboards.inline import main_menu_kb, tariffs_kb, payment_methods_kb, vpn_links_kb, check_payment_kb, crypto_pay_kb, main_reply_kb
 from services.marzban import marzban_api
+from services.happ import happ_service
 from services.payment import crypto_pay
 from bot.config import config
 from loguru import logger
@@ -62,6 +63,54 @@ async def process_back_to_main(callback: CallbackQuery):
     )
     await callback.message.edit_text(text, reply_markup=main_menu_kb())
 
+@router.callback_query(F.data == "profile")
+async def process_profile(callback: CallbackQuery, session: AsyncSession):
+    """Показ профиля пользователя."""
+    user = await get_user(session, callback.from_user.id)
+    if not user:
+        await callback.answer("Пользователь не найден.", show_alert=True)
+        return
+
+    status = "🔴 Неактивен"
+    if user.sub_end_date and user.sub_end_date > datetime.utcnow():
+        days_left = (user.sub_end_date - datetime.utcnow()).days
+        status = f"🟢 Активен (осталось {days_left} дней)"
+
+    text = (
+        f"👤 **Ваш профиль**\n\n"
+        f"🆔 ID: `{user.id}`\n"
+        f"📅 Регистрация: {user.registered_at.strftime('%d.%m.%Y')}\n"
+        f"📊 Статус подписки: {status}\n"
+    )
+    
+    # Импортируем back_kb здесь, если он еще не импортирован вверху
+    from bot.keyboards.inline import back_kb
+    await callback.message.edit_text(text, reply_markup=back_kb(), parse_mode="Markdown")
+
+@router.callback_query(F.data == "referral")
+async def process_referral(callback: CallbackQuery, session: AsyncSession):
+    """Показ реферальной программы."""
+    user = await get_user(session, callback.from_user.id)
+    
+    bot_info = await callback.bot.get_me()
+    ref_link = f"https://t.me/{bot_info.username}?start={callback.from_user.id}"
+    
+    # Подсчет рефералов
+    from sqlalchemy import select, func
+    from database.models import User
+    result = await session.execute(select(func.count(User.id)).where(User.referrer_id == callback.from_user.id))
+    referrals_count = result.scalar() or 0
+    
+    text = (
+        f"🎁 **Реферальная программа**\n\n"
+        f"Приглашайте друзей и получайте **1 месяц VPN бесплатно** за каждого друга, который оплатит подписку!\n\n"
+        f"🔗 Ваша реферальная ссылка:\n`{ref_link}`\n\n"
+        f"👥 Приглашено друзей: {referrals_count}"
+    )
+    
+    from bot.keyboards.inline import back_kb
+    await callback.message.edit_text(text, reply_markup=back_kb(), parse_mode="Markdown")
+
 @router.callback_query(F.data.startswith("tariff_"))
 async def process_tariff_selection(callback: CallbackQuery):
     """Выбор тарифа и переход к оплате."""
@@ -80,25 +129,40 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
     username = f"tg_{user_id}"
     expire_ts = int(time.time()) + (days * 86400)
     
+    # 1. Создаем пользователя в Marzban
     marzban_user = await marzban_api.create_user(username, expire_ts)
     if not marzban_user:
         await status_msg.edit_text("❌ Ошибка при создании VPN. Обратитесь в поддержку.")
         return
         
-    sub_url = marzban_user.get("subscription_url", "https://a2key.xyz/sub/example")
+    # 2. Достаем обычную ссылку из ответа Marzban
+    raw_sub_url = marzban_user.get("subscription_url", "")
+    
+    # Если Marzban вернул относительную ссылку (например, /sub/12345), делаем её абсолютной
+    if raw_sub_url and not raw_sub_url.startswith("http"):
+        raw_sub_url = f"{config.MARZBAN_URL.rstrip('/')}{raw_sub_url}"
+        
+    # 3. МАГИЯ HAPP! Превращаем обычную ссылку в happ://crypt5
+    magic_link = await happ_service.encrypt_link(
+        raw_url=raw_sub_url, 
+        title="Premium_VPN", 
+        limit=3  # Лимит на 3 устройства по умолчанию
+    )
     
     end_date = datetime.utcnow() + timedelta(days=days)
-    await update_subscription(session, user_id, end_date, username, sub_url)
+    await update_subscription(session, user_id, end_date, username, magic_link)
     
+    # 4. Отправляем финальную ссылку пользователю
     instruction = (
         "✅ **Оплата прошла успешно! Ваш VPN готов.**\n\n"
         "📱 **Инструкция по подключению:**\n"
-        "1. Скачайте приложение (V2RayNG / FoXray / v2rayN).\n"
+        "1. Скачайте приложение HAPP.\n"
         "2. Скопируйте ссылку ниже.\n"
-        "3. В приложении выберите `Add configuration` -> `From clipboard`.\n\n"
+        "3. В приложении нажмите `Добавить из буфера обмена`.\n\n"
+        f"Твоя персональная ссылка:\n`{magic_link}`\n\n"
         "У вас доступно 3 устройства одновременно. Приятного использования!"
     )
-    await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(sub_url))
+    await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(magic_link))
 
 @router.callback_query(F.data.startswith("pay_sbp_"))
 async def process_pay_sbp(callback: CallbackQuery):

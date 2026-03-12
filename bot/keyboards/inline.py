@@ -2,7 +2,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 from aiogram.types.web_app_info import WebAppInfo
 
 # Ссылка на ваше Web App (из AI Studio)
-WEB_APP_URL = "https://ais-pre-6qdqtvvvhw4kjqanercylm-214266535636.europe-west2.run.app/"
+# ВАЖНО: Эта ссылка заработает только после того, как вы нажмете кнопку "Share" в AI Studio!
+WEB_APP_URL = "https://premium-connect-three.vercel.app/"
 
 def main_reply_kb() -> ReplyKeyboardMarkup:
     """Нижняя клавиатура с Web App."""
@@ -20,6 +21,12 @@ def main_menu_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="👤 Мой профиль", callback_data="profile")],
         [InlineKeyboardButton(text="🎁 Реферальная программа", callback_data="referral")],
         [InlineKeyboardButton(text="🆘 Поддержка", url="https://t.me/support")]
+    ])
+
+def back_kb() -> InlineKeyboardMarkup:
+    """Кнопка Назад в главное меню."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
     ])
 
 def tariffs_kb() -> InlineKeyboardMarkup:
@@ -65,16 +72,21 @@ def crypto_pay_kb(pay_url: str, invoice_id: int, tariff: str) -> InlineKeyboardM
 
 def vpn_links_kb(sub_url: str) -> InlineKeyboardMarkup:
     """Кнопки с конфигурациями."""
+    
+    # Если ссылка уже является happ:// или содержит http, не приклеиваем base_url
+    if sub_url.startswith("happ://") or sub_url.startswith("http"):
+        full_url = sub_url
+    else:
+        base_url = "https://premium-connect.duckdns.org:8000" 
+        full_url = f"{base_url}{sub_url}"
 
-    # Склеиваем твой IP (или домен) с хвостиком подписки. 
-    # Если ты уже сделал домен в DuckDNS, впиши его вместо IP! 
-    # Например: base_url = "http://premium-connect.duckdns.org:8000"
-    base_url = "https://premium-connect.duckdns.org:8000" 
+    # Если это happ ссылка, мы не можем сделать url=happ:// в Telegram кнопке (Telegram не поддерживает нестандартные схемы в url кнопках)
+    # Поэтому мы просто даем кнопку с инструкцией
+    if full_url.startswith("happ://"):
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❓ Как настроить подключение", callback_data="help_config")]
+        ])
 
-    # Получаем полноценную ссылку для Telegram
-    full_url = f"{base_url}{sub_url}"
-
-    # Я обновил названия кнопок под твои реальные мощные протоколы
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔗 Ссылка на подписку (VLESS + SS)", url=full_url)],
         [InlineKeyboardButton(text="❓ Как настроить подключение", callback_data="help_config")]

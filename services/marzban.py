@@ -57,7 +57,13 @@ class MarzbanAPI:
             "status": "active",
             "note": "Created via Telegram Bot",
             "on_hold_timeout": "2026-01-01T00:00:00",
-            "on_hold_expire_duration": 0
+            "on_hold_expire_duration": 0,
+            # ДОБАВЛЯЕМ ЯВНОЕ УКАЗАНИЕ ПРОТОКОЛОВ (Защита от 500 ошибки)
+            "proxies": {
+                "vless": {
+                    "flow": "xtls-rprx-vision"
+                }
+            }
         }
         
         result = await self._request("POST", "/api/user", json=payload)
