@@ -73,8 +73,19 @@ async def process_profile(callback: CallbackQuery, session: AsyncSession):
 
     status = "🔴 Неактивен"
     if user.sub_end_date and user.sub_end_date > datetime.utcnow():
-        days_left = (user.sub_end_date - datetime.utcnow()).days
-        status = f"🟢 Активен (осталось {days_left} дней)"
+        time_left = user.sub_end_date - datetime.utcnow()
+        days_left = time_left.days
+        hours_left = time_left.seconds // 3600
+        
+        if days_left > 0:
+            left_str = f"{days_left} дн."
+        else:
+            left_str = f"{hours_left} ч."
+
+        if user.marzban_username and user.marzban_username.endswith("_trial"):
+            status = f"🎁 Тестовый период (осталось {left_str})"
+        else:
+            status = f"🟢 Активен (осталось {left_str})"
 
     text = (
         f"👤 **Ваш профиль**\n\n"
@@ -119,6 +130,62 @@ async def process_tariff_selection(callback: CallbackQuery):
         f"Вы выбрали тариф на {tariff_months} мес.\nВыберите удобный способ оплаты:",
         reply_markup=payment_methods_kb(tariff_months)
     )
+
+@router.callback_query(F.data == "get_trial")
+async def process_get_trial(callback: CallbackQuery, session: AsyncSession):
+    """Выдача бесплатного тестового периода на 5 дней."""
+    user_id = callback.from_user.id
+    
+    # 1. Защита от абуза: проверяем, брал ли юзер уже VPN
+    user = await get_user(session, user_id)
+    if user and user.marzban_username:
+        await callback.answer(
+            "❌ Вы уже использовали тестовый период или у вас есть подписка.", 
+            show_alert=True
+        )
+        return
+
+    status_msg = await callback.message.edit_text("⏳ Генерирую тестовый ключ на 5 дней...")
+    
+    # 2. Настройки триала (5 дней)
+    days = 5
+    username = f"tg_{user_id}_trial"
+    expire_ts = int(time.time()) + (days * 86400)
+    
+    # 3. Создаем юзера в Marzban
+    marzban_user = await marzban_api.create_user(username, expire_ts)
+    if not marzban_user:
+        await status_msg.edit_text("❌ Ошибка при выдаче триала. Сервер недоступен.")
+        return
+        
+    # Достаем ссылку (если Marzban отдает относительную - склеиваем с доменом)
+    sub_url = marzban_user.get("subscription_url", "")
+    if sub_url and not sub_url.startswith("http"):
+        sub_url = f"{config.MARZBAN_URL.rstrip('/')}{sub_url}"
+        
+    # Используем HAPP для шифрования ссылки
+    sub_url = await happ_service.encrypt_link(sub_url, title="🎁_Trial", limit=2)
+    
+    # 4. Записываем в базу данных, что юзер получил доступ
+    end_date = datetime.utcnow() + timedelta(days=days)
+    await update_subscription(session, user_id, end_date, username, sub_url)
+    
+    # 5. Выдаем ссылку
+    instruction = (
+        "🎁 **Тестовый период успешно активирован!**\n\n"
+        "У вас есть ровно 5 дней максимальной скорости, чтобы оценить качество нашего Premium VPN.\n\n"
+        "Ваша персональная ссылка:\n"
+        f"`{sub_url}`\n\n"
+        "📱 **Как подключиться:**\n"
+        "1. Скопируйте ссылку выше.\n"
+        "2. Откройте ваше приложение VPN (V2Ray / HAPP).\n"
+        "3. Нажмите добавить из буфера обмена."
+    )
+    
+    try:
+        await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(sub_url))
+    except Exception:
+        await status_msg.edit_text(instruction)
 
 async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_months: str):
     """Общая функция выдачи VPN после успешной оплаты."""
