@@ -73,9 +73,22 @@ class MarzbanAPI:
         """Получение статистики сервера (онлайн)."""
         return await self._request("GET", "/api/system")
 
+    async def get_user(self, username: str):
+        """Получение пользователя из Marzban."""
+        return await self._request("GET", f"/api/user/{username}")
+
     async def suspend_user(self, username: str):
         """Блокировка пользователя (например, за превышение лимита устройств)."""
         payload = {"status": "disabled"}
+        return await self._request("PUT", f"/api/user/{username}", json=payload)
+
+    async def update_user(self, username: str, expire: int = None, status: str = None):
+        """Обновление пользователя (продление подписки)."""
+        payload = {}
+        if expire is not None:
+            payload["expire"] = expire
+        if status is not None:
+            payload["status"] = status
         return await self._request("PUT", f"/api/user/{username}", json=payload)
 
 marzban_api = MarzbanAPI()

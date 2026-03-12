@@ -17,6 +17,7 @@ def main_reply_kb() -> ReplyKeyboardMarkup:
 def main_menu_kb() -> InlineKeyboardMarkup:
     """Главное меню."""
     return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✨ Открыть красивое приложение", web_app=WebAppInfo(url=WEB_APP_URL))],
         [InlineKeyboardButton(text="🛒 Купить VPN", callback_data="buy_vpn")],
         [InlineKeyboardButton(text="👤 Мой профиль", callback_data="profile")],
         [InlineKeyboardButton(text="🎁 Реферальная программа", callback_data="referral")],

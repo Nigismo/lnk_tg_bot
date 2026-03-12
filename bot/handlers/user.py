@@ -103,7 +103,7 @@ async def process_referral(callback: CallbackQuery, session: AsyncSession):
     
     text = (
         f"🎁 **Реферальная программа**\n\n"
-        f"Приглашайте друзей и получайте **1 месяц VPN бесплатно** за каждого друга, который оплатит подписку!\n\n"
+        f"Приглашайте друзей и получайте **1 месяц (30 дней) VPN бесплатно** за каждого друга, который оплатит подписку!\n\n"
         f"🔗 Ваша реферальная ссылка:\n`{ref_link}`\n\n"
         f"👥 Приглашено друзей: {referrals_count}"
     )
@@ -127,12 +127,31 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
     status_msg = await bot.send_message(user_id, "⏳ Создание конфигурации VPN...")
     
     username = f"tg_{user_id}"
-    expire_ts = int(time.time()) + (days * 86400)
     
-    # 1. Создаем пользователя в Marzban
-    marzban_user = await marzban_api.create_user(username, expire_ts)
+    # Получаем пользователя из БД
+    user = await get_user(session, user_id)
+    is_first_payment = user and user.sub_end_date is None
+    
+    # Считаем новую дату окончания
+    now = datetime.utcnow()
+    if user and user.sub_end_date and user.sub_end_date > now:
+        end_date = user.sub_end_date + timedelta(days=days)
+    else:
+        end_date = now + timedelta(days=days)
+        
+    expire_ts = int(end_date.timestamp())
+    
+    # 1. Создаем или обновляем пользователя в Marzban
+    marzban_user = await marzban_api.get_user(username)
+    if marzban_user:
+        # Обновляем
+        marzban_user = await marzban_api.update_user(username, expire=expire_ts, status="active")
+    else:
+        # Создаем
+        marzban_user = await marzban_api.create_user(username, expire_ts)
+        
     if not marzban_user:
-        await status_msg.edit_text("❌ Ошибка при создании VPN. Обратитесь в поддержку.")
+        await status_msg.edit_text("❌ Ошибка при создании/обновлении VPN. Обратитесь в поддержку.")
         return
         
     # 2. Достаем обычную ссылку из ответа Marzban
@@ -149,7 +168,6 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
         limit=3  # Лимит на 3 устройства по умолчанию
     )
     
-    end_date = datetime.utcnow() + timedelta(days=days)
     await update_subscription(session, user_id, end_date, username, magic_link)
     
     # 4. Отправляем финальную ссылку пользователю
@@ -163,6 +181,45 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
         "У вас доступно 3 устройства одновременно. Приятного использования!"
     )
     await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(magic_link))
+    
+    # 5. Начисление бонуса рефереру
+    if is_first_payment and user and user.referrer_id:
+        referrer = await get_user(session, user.referrer_id)
+        if referrer:
+            ref_days = 30 # Бонус 30 дней (1 месяц)
+            ref_now = datetime.utcnow()
+            if referrer.sub_end_date and referrer.sub_end_date > ref_now:
+                ref_end_date = referrer.sub_end_date + timedelta(days=ref_days)
+            else:
+                ref_end_date = ref_now + timedelta(days=ref_days)
+                
+            ref_username = f"tg_{referrer.id}"
+            ref_expire_ts = int(ref_end_date.timestamp())
+            
+            ref_marzban_user = await marzban_api.get_user(ref_username)
+            if ref_marzban_user:
+                ref_marzban_user = await marzban_api.update_user(ref_username, expire=ref_expire_ts, status="active")
+            else:
+                ref_marzban_user = await marzban_api.create_user(ref_username, ref_expire_ts)
+                
+            if ref_marzban_user:
+                ref_raw_sub_url = ref_marzban_user.get("subscription_url", "")
+                if ref_raw_sub_url and not ref_raw_sub_url.startswith("http"):
+                    ref_raw_sub_url = f"{config.MARZBAN_URL.rstrip('/')}{ref_raw_sub_url}"
+                ref_magic_link = await happ_service.encrypt_link(ref_raw_sub_url, "Premium_VPN", 3)
+                
+                await update_subscription(session, referrer.id, ref_end_date, ref_username, ref_magic_link)
+                
+                try:
+                    await bot.send_message(
+                        referrer.id,
+                        "🎉 **Отличные новости!**\n\n"
+                        "Ваш друг только что оплатил подписку! 🎁\n"
+                        f"Вам начислено **+{ref_days} дней** бесплатного VPN.\n"
+                        "Спасибо, что рекомендуете нас!"
+                    )
+                except Exception:
+                    pass
 
 @router.callback_query(F.data.startswith("pay_sbp_"))
 async def process_pay_sbp(callback: CallbackQuery):
