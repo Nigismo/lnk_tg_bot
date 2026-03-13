@@ -88,15 +88,15 @@ async def process_profile(callback: CallbackQuery, session: AsyncSession):
             status = f"🟢 Активен (осталось {left_str})"
 
     text = (
-        f"👤 **Ваш профиль**\n\n"
-        f"🆔 ID: `{user.id}`\n"
+        f"👤 <b>Ваш профиль</b>\n\n"
+        f"🆔 ID: <code>{user.id}</code>\n"
         f"📅 Регистрация: {user.registered_at.strftime('%d.%m.%Y')}\n"
         f"📊 Статус подписки: {status}\n"
     )
     
     # Импортируем back_kb здесь, если он еще не импортирован вверху
     from bot.keyboards.inline import back_kb
-    await callback.message.edit_text(text, reply_markup=back_kb(), parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=back_kb(), parse_mode="HTML")
 
 @router.callback_query(F.data == "referral")
 async def process_referral(callback: CallbackQuery, session: AsyncSession):
@@ -113,14 +113,14 @@ async def process_referral(callback: CallbackQuery, session: AsyncSession):
     referrals_count = result.scalar() or 0
     
     text = (
-        f"🎁 **Реферальная программа**\n\n"
-        f"Приглашайте друзей и получайте **1 месяц (30 дней) VPN бесплатно** за каждого друга, который оплатит подписку!\n\n"
-        f"🔗 Ваша реферальная ссылка:\n`{ref_link}`\n\n"
+        f"🎁 <b>Реферальная программа</b>\n\n"
+        f"Приглашайте друзей и получайте <b>1 месяц (30 дней) VPN бесплатно</b> за каждого друга, который оплатит подписку!\n\n"
+        f"🔗 Ваша реферальная ссылка:\n<code>{ref_link}</code>\n\n"
         f"👥 Приглашено друзей: {referrals_count}"
     )
     
     from bot.keyboards.inline import back_kb
-    await callback.message.edit_text(text, reply_markup=back_kb(), parse_mode="Markdown")
+    await callback.message.edit_text(text, reply_markup=back_kb(), parse_mode="HTML")
 
 @router.callback_query(F.data.startswith("tariff_"))
 async def process_tariff_selection(callback: CallbackQuery):
@@ -160,7 +160,10 @@ async def process_get_trial(callback: CallbackQuery, session: AsyncSession):
         
     # Достаем ссылку (если Marzban отдает относительную - склеиваем с доменом)
     sub_url = marzban_user.get("subscription_url", "")
-    if sub_url and not sub_url.startswith("http"):
+    if not sub_url and marzban_user.get("links"):
+        sub_url = marzban_user.get("links")[0]
+        
+    if sub_url and not sub_url.startswith("http") and not sub_url.startswith("vless://") and not sub_url.startswith("vmess://") and not sub_url.startswith("trojan://") and not sub_url.startswith("ss://"):
         sub_url = f"{config.MARZBAN_URL.rstrip('/')}{sub_url}"
         
     # Используем HAPP для шифрования ссылки
@@ -172,20 +175,21 @@ async def process_get_trial(callback: CallbackQuery, session: AsyncSession):
     
     # 5. Выдаем ссылку
     instruction = (
-        "🎁 **Тестовый период успешно активирован!**\n\n"
+        "🎁 <b>Тестовый период успешно активирован!</b>\n\n"
         "У вас есть ровно 5 дней максимальной скорости, чтобы оценить качество нашего Premium VPN.\n\n"
         "Ваша персональная ссылка:\n"
-        f"`{sub_url}`\n\n"
-        "📱 **Как подключиться:**\n"
+        f"<code>{sub_url}</code>\n\n"
+        "📱 <b>Как подключиться:</b>\n"
         "1. Скопируйте ссылку выше.\n"
         "2. Откройте ваше приложение VPN (V2Ray / HAPP).\n"
         "3. Нажмите добавить из буфера обмена."
     )
     
     try:
-        await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(sub_url))
-    except Exception:
-        await status_msg.edit_text(instruction)
+        await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(sub_url), parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Error sending trial link: {e}")
+        await status_msg.edit_text(instruction, parse_mode="HTML")
 
 async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_months: str):
     """Общая функция выдачи VPN после успешной оплаты."""
@@ -223,9 +227,11 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
         
     # 2. Достаем обычную ссылку из ответа Marzban
     raw_sub_url = marzban_user.get("subscription_url", "")
+    if not raw_sub_url and marzban_user.get("links"):
+        raw_sub_url = marzban_user.get("links")[0]
     
     # Если Marzban вернул относительную ссылку (например, /sub/12345), делаем её абсолютной
-    if raw_sub_url and not raw_sub_url.startswith("http"):
+    if raw_sub_url and not raw_sub_url.startswith("http") and not raw_sub_url.startswith("vless://") and not raw_sub_url.startswith("vmess://") and not raw_sub_url.startswith("trojan://") and not raw_sub_url.startswith("ss://"):
         raw_sub_url = f"{config.MARZBAN_URL.rstrip('/')}{raw_sub_url}"
         
     # 3. МАГИЯ HAPP! Превращаем обычную ссылку в happ://crypt5
@@ -239,15 +245,19 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
     
     # 4. Отправляем финальную ссылку пользователю
     instruction = (
-        "✅ **Оплата прошла успешно! Ваш VPN готов.**\n\n"
-        "📱 **Инструкция по подключению:**\n"
+        "✅ <b>Оплата прошла успешно! Ваш VPN готов.</b>\n\n"
+        "📱 <b>Инструкция по подключению:</b>\n"
         "1. Скачайте приложение HAPP.\n"
         "2. Скопируйте ссылку ниже.\n"
-        "3. В приложении нажмите `Добавить из буфера обмена`.\n\n"
-        f"Твоя персональная ссылка:\n`{magic_link}`\n\n"
+        "3. В приложении нажмите <code>Добавить из буфера обмена</code>.\n\n"
+        f"Твоя персональная ссылка:\n<code>{magic_link}</code>\n\n"
         "У вас доступно 3 устройства одновременно. Приятного использования!"
     )
-    await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(magic_link))
+    try:
+        await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(magic_link), parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Error sending paid link: {e}")
+        await status_msg.edit_text(instruction, parse_mode="HTML")
     
     # 5. Начисление бонуса рефереру
     if is_first_payment and user and user.referrer_id:
@@ -271,7 +281,9 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
                 
             if ref_marzban_user:
                 ref_raw_sub_url = ref_marzban_user.get("subscription_url", "")
-                if ref_raw_sub_url and not ref_raw_sub_url.startswith("http"):
+                if not ref_raw_sub_url and ref_marzban_user.get("links"):
+                    ref_raw_sub_url = ref_marzban_user.get("links")[0]
+                if ref_raw_sub_url and not ref_raw_sub_url.startswith("http") and not ref_raw_sub_url.startswith("vless://") and not ref_raw_sub_url.startswith("vmess://") and not ref_raw_sub_url.startswith("trojan://") and not ref_raw_sub_url.startswith("ss://"):
                     ref_raw_sub_url = f"{config.MARZBAN_URL.rstrip('/')}{ref_raw_sub_url}"
                 ref_magic_link = await happ_service.encrypt_link(ref_raw_sub_url, "Premium_VPN", 3)
                 
@@ -280,13 +292,14 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
                 try:
                     await bot.send_message(
                         referrer.id,
-                        "🎉 **Отличные новости!**\n\n"
+                        "🎉 <b>Отличные новости!</b>\n\n"
                         "Ваш друг только что оплатил подписку! 🎁\n"
-                        f"Вам начислено **+{ref_days} дней** бесплатного VPN.\n"
-                        "Спасибо, что рекомендуете нас!"
+                        f"Вам начислено <b>+{ref_days} дней</b> бесплатного VPN.\n"
+                        "Спасибо, что рекомендуете нас!",
+                        parse_mode="HTML"
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"Error sending referrer bonus message: {e}")
 
 @router.callback_query(F.data.startswith("pay_sbp_"))
 async def process_pay_sbp(callback: CallbackQuery):
@@ -427,7 +440,8 @@ async def process_check_pay_sbp(callback: CallbackQuery, session: AsyncSession):
         await callback.bot.send_message(
             chat_id=config.ADMIN_ID,
             text=admin_text,
-            reply_markup=admin_confirm_payment_kb(callback.from_user.id, tariff_months)
+            reply_markup=admin_confirm_payment_kb(callback.from_user.id, tariff_months),
+            parse_mode="HTML"
         )
     except Exception as e:
         logger.error(f"Не удалось отправить уведомление админу: {e}")

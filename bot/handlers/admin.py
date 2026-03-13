@@ -61,7 +61,8 @@ async def process_admin_confirm_pay(callback: CallbackQuery, session: AsyncSessi
     tariff_months = parts[4]
     
     await callback.message.edit_text(
-        callback.message.text + "\n\n✅ **Платеж подтвержден! Доступ выдан.**"
+        callback.message.text + "\n\n✅ <b>Платеж подтвержден! Доступ выдан.</b>",
+        parse_mode="HTML"
     )
     
     # Выдаем доступ пользователю
@@ -78,7 +79,8 @@ async def process_admin_reject_pay(callback: CallbackQuery):
     user_id = int(parts[3])
     
     await callback.message.edit_text(
-        callback.message.text + "\n\n❌ **Платеж отклонен.**"
+        callback.message.text + "\n\n❌ <b>Платеж отклонен.</b>",
+        parse_mode="HTML"
     )
     
     # Уведомляем пользователя
