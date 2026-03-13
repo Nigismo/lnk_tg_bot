@@ -67,7 +67,7 @@ async def main():
     # Запуск FastAPI сервера для коротких ссылок
     import uvicorn
     from web_app import app as fastapi_app
-    uvicorn_config = uvicorn.Config(app=fastapi_app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn_config = uvicorn.Config(app=fastapi_app, host="0.0.0.0", port=8080, log_level="info")
     uvicorn_server = uvicorn.Server(uvicorn_config)
     asyncio.create_task(uvicorn_server.serve())
     
