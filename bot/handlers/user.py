@@ -58,7 +58,6 @@ async def process_back_to_main(callback: CallbackQuery):
         "👋 Добро пожаловать в лучший VPN сервис!\n\n"
         "🚀 **Стабильное соединение**\n"
         "📺 **4K без лагов**\n"
-        "👥 Уже **15 710** пользователей выбрали нас.\n\n"
         "Выберите действие ниже:"
     )
     await callback.message.edit_text(text, reply_markup=main_menu_kb())
@@ -167,7 +166,10 @@ async def process_get_trial(callback: CallbackQuery, session: AsyncSession):
         sub_url = f"{config.MARZBAN_URL.rstrip('/')}{sub_url}"
         
     # Используем HAPP для шифрования ссылки
-    sub_url = await happ_service.encrypt_link(sub_url, title="🎁_Trial", limit=2)
+    sub_url = await happ_service.encrypt_link(sub_url, title="🎁_Trial", limit=3)
+    
+    # Сокращаем ссылку для красивой кнопки
+    short_url = await happ_service.shorten_url(sub_url)
     
     # 4. Записываем в базу данных, что юзер получил доступ
     end_date = datetime.utcnow() + timedelta(days=days)
@@ -177,16 +179,25 @@ async def process_get_trial(callback: CallbackQuery, session: AsyncSession):
     instruction = (
         "🎁 <b>Тестовый период успешно активирован!</b>\n\n"
         "У вас есть ровно 5 дней максимальной скорости, чтобы оценить качество нашего Premium VPN.\n\n"
-        "Ваша персональная ссылка:\n"
-        f"<code>{sub_url}</code>\n\n"
         "📱 <b>Как подключиться:</b>\n"
-        "1. Скопируйте ссылку выше.\n"
-        "2. Откройте ваше приложение VPN (V2Ray / HAPP).\n"
-        "3. Нажмите добавить из буфера обмена."
+        "1. Скачайте приложение HAPP.\n"
     )
     
+    if short_url.startswith("http"):
+        instruction += (
+            "2. Нажмите кнопку <b>«🚀 Подключить в один клик»</b> ниже.\n"
+            "3. Разрешите открыть конфигурацию в приложении."
+        )
+    else:
+        instruction += (
+            "2. Скопируйте ключ доступа ниже.\n"
+            "3. В приложении нажмите <code>Добавить из буфера обмена</code>.\n\n"
+            "<blockquote expandable><b>Ваш ключ доступа (нажмите для копирования):</b>\n"
+            f"<code>{sub_url}</code></blockquote>"
+        )
+    
     try:
-        await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(sub_url), parse_mode="HTML")
+        await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(sub_url, short_url), parse_mode="HTML")
     except Exception as e:
         logger.error(f"Error sending trial link: {e}")
         await status_msg.edit_text(instruction, parse_mode="HTML")
@@ -241,6 +252,9 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
         limit=3  # Лимит на 3 устройства по умолчанию
     )
     
+    # Сокращаем ссылку для красивой кнопки
+    short_magic_link = await happ_service.shorten_url(magic_link)
+    
     await update_subscription(session, user_id, end_date, username, magic_link)
     
     # 4. Отправляем финальную ссылку пользователю
@@ -248,13 +262,25 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
         "✅ <b>Оплата прошла успешно! Ваш VPN готов.</b>\n\n"
         "📱 <b>Инструкция по подключению:</b>\n"
         "1. Скачайте приложение HAPP.\n"
-        "2. Скопируйте ссылку ниже.\n"
-        "3. В приложении нажмите <code>Добавить из буфера обмена</code>.\n\n"
-        f"Твоя персональная ссылка:\n<code>{magic_link}</code>\n\n"
-        "У вас доступно 3 устройства одновременно. Приятного использования!"
     )
+    
+    if short_magic_link.startswith("http"):
+        instruction += (
+            "2. Нажмите кнопку <b>«🚀 Подключить в один клик»</b> ниже.\n"
+            "3. Разрешите открыть конфигурацию в приложении.\n\n"
+            "У вас доступно 3 устройства одновременно. Приятного использования!"
+        )
+    else:
+        instruction += (
+            "2. Скопируйте ключ доступа ниже.\n"
+            "3. В приложении нажмите <code>Добавить из буфера обмена</code>.\n\n"
+            "<blockquote expandable><b>Ваш ключ доступа (нажмите для копирования):</b>\n"
+            f"<code>{magic_link}</code></blockquote>\n\n"
+            "У вас доступно 3 устройства одновременно. Приятного использования!"
+        )
+        
     try:
-        await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(magic_link), parse_mode="HTML")
+        await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(magic_link, short_magic_link), parse_mode="HTML")
     except Exception as e:
         logger.error(f"Error sending paid link: {e}")
         await status_msg.edit_text(instruction, parse_mode="HTML")

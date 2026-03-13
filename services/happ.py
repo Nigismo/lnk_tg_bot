@@ -43,5 +43,16 @@ class HappService:
             logger.error(f"HAPP Encryption error: {e}")
             return raw_url # В случае ошибки отдаем сырую ссылку
 
+    async def shorten_url(self, url: str) -> str:
+        """Сокращает ссылку через TinyURL для красивых кнопок."""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"https://tinyurl.com/api-create.php?url={urllib.parse.quote(url)}")
+                if response.status_code == 200:
+                    return response.text.strip()
+        except Exception as e:
+            logger.error(f"URL Shortening error: {e}")
+        return url
+
 # Инициализируем синглтон
 happ_service = HappService(provider_code=config.HAPP_PROVIDER_CODE, auth_key=config.HAPP_AUTH_KEY)

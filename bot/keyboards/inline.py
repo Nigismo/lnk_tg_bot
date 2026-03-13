@@ -72,7 +72,7 @@ def crypto_pay_kb(pay_url: str, invoice_id: int, tariff: str) -> InlineKeyboardM
         [InlineKeyboardButton(text="🔙 Отмена", callback_data="buy_vpn")]
     ])
 
-def vpn_links_kb(sub_url: str) -> InlineKeyboardMarkup:
+def vpn_links_kb(sub_url: str, short_url: str = None) -> InlineKeyboardMarkup:
     """Кнопки с конфигурациями."""
     
     # Если ссылка уже является happ:// или содержит http, не приклеиваем base_url
@@ -82,14 +82,13 @@ def vpn_links_kb(sub_url: str) -> InlineKeyboardMarkup:
         base_url = "https://premium-connect.duckdns.org:8000" 
         full_url = f"{base_url}{sub_url}"
 
-    # Если это happ ссылка, мы не можем сделать url=happ:// в Telegram кнопке (Telegram не поддерживает нестандартные схемы в url кнопках)
-    # Поэтому мы просто даем кнопку с инструкцией
-    if full_url.startswith("happ://"):
-        return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="❓ Как настроить подключение", callback_data="help_config")]
-        ])
-
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔗 Ссылка на подписку (VLESS + SS)", url=full_url)],
-        [InlineKeyboardButton(text="❓ Как настроить подключение", callback_data="help_config")]
-    ])
+    buttons = []
+    
+    if short_url and short_url.startswith("http"):
+        buttons.append([InlineKeyboardButton(text="🚀 Подключить в один клик", url=short_url)])
+    elif full_url.startswith("http"):
+        buttons.append([InlineKeyboardButton(text="🔗 Ссылка на подписку (VLESS + SS)", url=full_url)])
+        
+    buttons.append([InlineKeyboardButton(text="❓ Как настроить подключение", callback_data="help_config")])
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
