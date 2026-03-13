@@ -16,7 +16,7 @@ class HappService:
             "auth_key": self.auth_key,
             "install_limit": limit
         }
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(self.install_api, params=params)
             response.raise_for_status()
             data = response.json()
@@ -48,7 +48,7 @@ class HappService:
             safe_title = urllib.parse.quote(title)
             assembled_url = f"{complex_url}#{safe_title}"
             
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.post(self.crypto_api, json={"url": assembled_url})
                 if response.status_code == 200:
                     encrypted_link = response.text.strip().strip('"')

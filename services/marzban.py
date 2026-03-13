@@ -9,25 +9,30 @@ class MarzbanAPI:
         self.username = config.MARZBAN_USERNAME
         self.password = config.MARZBAN_PASSWORD
         self.token = None
+        self.token_expires_at = 0
 
     async def _get_token(self):
         """Получение JWT токена для API Marzban."""
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             try:
                 data = {"username": self.username, "password": self.password}
                 response = await client.post(f"{self.base_url}/api/admin/token", data=data)
                 response.raise_for_status()
-                self.token = response.json().get("access_token")
+                token_data = response.json()
+                self.token = token_data.get("access_token")
+                # Marzban токен обычно живет долго, кэшируем на 1 час (3600 секунд)
+                self.token_expires_at = datetime.utcnow().timestamp() + 3600
             except Exception as e:
                 logger.error(f"Ошибка авторизации в Marzban: {e}")
 
     async def _request(self, method: str, endpoint: str, **kwargs):
         """Универсальный метод для запросов к API."""
-        if not self.token:
+        # Проверяем, есть ли токен и не истек ли он
+        if not self.token or datetime.utcnow().timestamp() >= self.token_expires_at:
             await self._get_token()
         
         headers = {"Authorization": f"Bearer {self.token}"}
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             try:
                 response = await client.request(method, f"{self.base_url}{endpoint}", headers=headers, **kwargs)
                 if response.status_code == 401: # Token expired

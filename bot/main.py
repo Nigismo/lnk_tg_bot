@@ -9,7 +9,6 @@ from bot.handlers import user, admin, payments
 from bot.middlewares.db import DbSessionMiddleware
 from database.models import Base
 from services.notifications import check_expiring_subscriptions
-from services.ip_limiter import ip_limiter
 
 async def main():
     logger.info("Запуск VPN бота...")
@@ -64,7 +63,6 @@ async def main():
     
     # Запуск фоновых задач
     asyncio.create_task(check_expiring_subscriptions(bot, session_maker))
-    asyncio.create_task(ip_limiter.tail_logs())
     
     # Запуск FastAPI сервера для коротких ссылок
     import uvicorn
