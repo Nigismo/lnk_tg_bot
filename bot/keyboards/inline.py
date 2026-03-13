@@ -44,7 +44,7 @@ def tariffs_kb() -> InlineKeyboardMarkup:
 def payment_methods_kb(tariff: str) -> InlineKeyboardMarkup:
     """Выбор способа оплаты."""
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📱 Оплата по СБП (QR) - Основной", callback_data=f"pay_sbp_{tariff}")],
+        [InlineKeyboardButton(text="📱 Оплата по СБП - Основной", callback_data=f"pay_sbp_{tariff}")],
         [InlineKeyboardButton(text="⭐️ Telegram Stars", callback_data=f"pay_stars_{tariff}")],
         [InlineKeyboardButton(text="🪙 Криптовалюта", callback_data=f"pay_crypto_{tariff}")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="buy_vpn")]

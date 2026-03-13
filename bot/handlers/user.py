@@ -329,68 +329,36 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
 
 @router.callback_query(F.data.startswith("pay_sbp_"))
 async def process_pay_sbp(callback: CallbackQuery):
-    """Оплата через СБП (QR)."""
+    """Оплата через СБП (По ссылке)."""
     tariff_months = callback.data.split("_")[2]
     price = TARIFFS[tariff_months]["price"]
     
+    payment_link = "https://www.sberbank.ru/ru/choise_bank?requisiteNumber=79270920073&bankCode=100000000111"
+    
     text = (
-        f"📱 **Оплата по СБП**\n\n"
-        f"К оплате: **{price} ₽**\n"
-        f"Отсканируйте QR-код ниже в приложении вашего банка или переведите по номеру телефона.\n\n"
-        f"После перевода нажмите кнопку «Я оплатил»."
+        f"📱 <b>Оплата по СБП</b>\n\n"
+        f"К оплате: <b>{price} ₽</b>\n\n"
+        f"Для оплаты перейдите по ссылке ниже.\n"
+        f"После перевода обязательно нажмите кнопку «Я оплатил»."
     )
     
+    # Создаем клавиатуру с кнопкой для оплаты и кнопкой проверки
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Оплатить (Сбербанк / СБП)", url=payment_link)],
+        [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"check_pay_sbp_{tariff_months}")],
+        [InlineKeyboardButton(text="🔙 Отмена", callback_data="buy_vpn")]
+    ])
+    
     try:
-        import qrcode
-        from io import BytesIO
-        from aiogram.types import BufferedInputFile
-        
-        # Ссылка для оплаты или номер телефона (замените на свои данные)
-        payment_data = "https://www.sberbank.ru/ru/choise_bank?requisiteNumber=79270920073&bankCode=100000000111"
-        
-        # Генерируем QR-код
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(payment_data)
-        qr.make(fit=True)
-        
-        img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Сохраняем в виртуальную память (BytesIO), а не на жесткий диск!
-        bio = BytesIO()
-        bio.name = 'qr.png'
-        img.save(bio, 'PNG')
-        bio.seek(0)
-        
-        photo = BufferedInputFile(bio.read(), filename="payment_qr.png")
-        
-        # Удаляем старое сообщение, так как мы не можем просто изменить текст на фото
-        try:
-            await callback.message.delete()
-        except:
-            pass
-            
-        await callback.message.answer_photo(
-            photo=photo,
-            caption=text,
-            reply_markup=check_payment_kb("sbp", tariff_months)
+        await callback.message.edit_text(
+            text=text,
+            reply_markup=kb,
+            parse_mode="HTML",
+            disable_web_page_preview=True
         )
     except Exception as e:
-        logger.error(f"Ошибка отправки фото СБП: {e}")
-        # Если не получилось отправить фото, отправляем просто текст
-        try:
-            await callback.message.delete()
-        except:
-            pass
-        await callback.message.answer(
-            text=text + f"\n\n🔗 [Ссылка для оплаты]({payment_data})",
-            reply_markup=check_payment_kb("sbp", tariff_months),
-            disable_web_page_preview=False
-        )
+        logger.error(f"Ошибка отправки СБП: {e}")
         
     await callback.answer()
 
