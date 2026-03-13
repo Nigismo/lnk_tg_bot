@@ -334,6 +334,7 @@ async def process_pay_sbp(callback: CallbackQuery):
     price = TARIFFS[tariff_months]["price"]
     
     payment_link = "https://www.sberbank.ru/ru/choise_bank?requisiteNumber=79270920073&bankCode=100000000111"
+    short_payment_link = await happ_service.shorten_url(payment_link)
     
     text = (
         f"📱 <b>Оплата по СБП</b>\n\n"
@@ -345,7 +346,7 @@ async def process_pay_sbp(callback: CallbackQuery):
     # Создаем клавиатуру с кнопкой для оплаты и кнопкой проверки
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Оплатить (Сбербанк / СБП)", url=payment_link)],
+        [InlineKeyboardButton(text="💳 Оплатить (Сбербанк / СБП)", url=short_payment_link)],
         [InlineKeyboardButton(text="✅ Я оплатил", callback_data=f"check_pay_sbp_{tariff_months}")],
         [InlineKeyboardButton(text="🔙 Отмена", callback_data="buy_vpn")]
     ])
@@ -442,29 +443,47 @@ async def process_check_pay_sbp(callback: CallbackQuery, session: AsyncSession):
 
     await callback.answer()
 
-@router.message(F.web_app_data)
-async def process_web_app_data(message: Message, session: AsyncSession):
-    """Обработка данных из Web App."""
-    data = message.web_app_data.data
-    if data.startswith("webapp_paid_sbp_"):
-        tariff_months = data.split("_")[-1]
+@router.message(F.text == "🛒 Купить VPN")
+async def handle_buy_vpn_text(message: Message):
+    """Обработка текстовой кнопки Купить VPN."""
+    from bot.keyboards.inline import tariffs_kb
+    await message.answer(
+        "🛒 <b>Выберите тарифный план:</b>\n\n"
+        "Чем больше период, тем выгоднее цена!",
+        reply_markup=tariffs_kb(),
+        parse_mode="HTML"
+    )
+
+@router.message(F.text == "👤 Мой профиль")
+async def handle_profile_text(message: Message, session: AsyncSession):
+    """Обработка текстовой кнопки Мой профиль."""
+    user = await get_user(session, message.from_user.id)
+    if not user:
+        await message.answer("Пользователь не найден.")
+        return
+
+    status = "🔴 Неактивен"
+    if user.sub_end_date and user.sub_end_date > datetime.utcnow():
+        time_left = user.sub_end_date - datetime.utcnow()
+        days_left = time_left.days
+        hours_left = time_left.seconds // 3600
         
-        await message.answer(
-            "Отлично! Твой платеж через Web App на проверке. Обычно это занимает от 1 до 5 минут. Мы пришлем доступ сюда."
-        )
-        
-        # Отправляем уведомление админу
-        from bot.keyboards.inline import admin_confirm_payment_kb
-        admin_text = (
-            f"💰 Юзер @{message.from_user.username or message.from_user.id} нажал «Я оплатил» в Web App.\n"
-            f"Тариф: {tariff_months} мес.\n"
-            f"Проверь карту. Выдать ему доступ?"
-        )
-        try:
-            await message.bot.send_message(
-                chat_id=config.ADMIN_ID,
-                text=admin_text,
-                reply_markup=admin_confirm_payment_kb(message.from_user.id, tariff_months)
-            )
-        except Exception as e:
-            logger.error(f"Не удалось отправить уведомление админу: {e}")
+        if days_left > 0:
+            left_str = f"{days_left} дн."
+        else:
+            left_str = f"{hours_left} ч."
+
+        if user.marzban_username and user.marzban_username.endswith("_trial"):
+            status = f"🎁 Тестовый период (осталось {left_str})"
+        else:
+            status = f"🟢 Активен (осталось {left_str})"
+
+    text = (
+        f"👤 <b>Ваш профиль</b>\n\n"
+        f"🆔 ID: <code>{user.id}</code>\n"
+        f"📅 Регистрация: {user.registered_at.strftime('%d.%m.%Y')}\n"
+        f"📊 Статус подписки: {status}\n"
+    )
+    
+    from bot.keyboards.inline import back_kb
+    await message.answer(text, reply_markup=back_kb(), parse_mode="HTML")

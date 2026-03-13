@@ -66,6 +66,13 @@ async def main():
     asyncio.create_task(check_expiring_subscriptions(bot, session_maker))
     asyncio.create_task(ip_limiter.tail_logs())
     
+    # Запуск FastAPI сервера для коротких ссылок
+    import uvicorn
+    from web_app import app as fastapi_app
+    uvicorn_config = uvicorn.Config(app=fastapi_app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn_server = uvicorn.Server(uvicorn_config)
+    asyncio.create_task(uvicorn_server.serve())
+    
     # Запуск polling
     try:
         await bot.delete_webhook(drop_pending_updates=True)

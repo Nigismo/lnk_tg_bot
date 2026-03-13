@@ -1,15 +1,10 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.types.web_app_info import WebAppInfo
-
-# Ссылка на ваше Web App (из AI Studio)
-# ВАЖНО: Эта ссылка заработает только после того, как вы нажмете кнопку "Share" в AI Studio!
-WEB_APP_URL = "https://premium-connect-three.vercel.app/"
 
 def main_reply_kb() -> ReplyKeyboardMarkup:
-    """Нижняя клавиатура с Web App."""
+    """Нижняя клавиатура."""
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🌐 Открыть Web App", web_app=WebAppInfo(url=WEB_APP_URL))]
+            [KeyboardButton(text="🛒 Купить VPN"), KeyboardButton(text="👤 Мой профиль")]
         ],
         resize_keyboard=True
     )
@@ -17,7 +12,6 @@ def main_reply_kb() -> ReplyKeyboardMarkup:
 def main_menu_kb() -> InlineKeyboardMarkup:
     """Главное меню."""
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✨ Открыть красивое приложение", web_app=WebAppInfo(url=WEB_APP_URL))],
         [InlineKeyboardButton(text="🎁 Получить 5 дней бесплатно", callback_data="get_trial")],
         [InlineKeyboardButton(text="🛒 Купить VPN", callback_data="buy_vpn")],
         [InlineKeyboardButton(text="👤 Мой профиль", callback_data="profile")],
@@ -74,20 +68,12 @@ def crypto_pay_kb(pay_url: str, invoice_id: int, tariff: str) -> InlineKeyboardM
 
 def vpn_links_kb(sub_url: str, short_url: str = None) -> InlineKeyboardMarkup:
     """Кнопки с конфигурациями."""
-    
-    # Если ссылка уже является happ:// или содержит http, не приклеиваем base_url
-    if sub_url.startswith("happ://") or sub_url.startswith("http"):
-        full_url = sub_url
-    else:
-        base_url = "https://premium-connect.duckdns.org:8000" 
-        full_url = f"{base_url}{sub_url}"
-
     buttons = []
     
     if short_url and short_url.startswith("http"):
         buttons.append([InlineKeyboardButton(text="🚀 Подключить в один клик", url=short_url)])
-    elif full_url.startswith("http"):
-        buttons.append([InlineKeyboardButton(text="🔗 Ссылка на подписку (VLESS + SS)", url=full_url)])
+    elif sub_url.startswith("http") or sub_url.startswith("happ://"):
+        buttons.append([InlineKeyboardButton(text="🔗 Ссылка на подписку", url=sub_url)])
         
     buttons.append([InlineKeyboardButton(text="❓ Как настроить подключение", callback_data="help_config")])
     

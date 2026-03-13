@@ -31,25 +31,38 @@ class HappService:
                 return raw_url
 
             install_id = await self._get_install_id(limit)
+            
+            # Приклеиваем параметры для обхода DPI (фрагментация)
+            params = {
+                "fragment": "1-10,5-20,tlshello",
+                "installid": install_id
+            }
+            
+            # Проверяем, есть ли уже параметры в ссылке
+            separator = "&" if "?" in raw_url else "?"
+            query_string = urllib.parse.urlencode(params)
+            
+            # Готовая длинная ссылка со всеми правилами
+            complex_url = f"{raw_url}{separator}{query_string}"
+            
             safe_title = urllib.parse.quote(title)
-            assembled_url = f"{raw_url}#{safe_title}?installid={install_id}"
+            assembled_url = f"{complex_url}#{safe_title}"
             
             async with httpx.AsyncClient() as client:
                 response = await client.post(self.crypto_api, json={"url": assembled_url})
                 if response.status_code == 200:
-                    return response.text.strip()
+                    encrypted_link = response.text.strip().strip('"')
+                    return encrypted_link
                 raise ConnectionError(f"Failed to encrypt URL. Status: {response.status_code}")
         except Exception as e:
             logger.error(f"HAPP Encryption error: {e}")
             return raw_url # В случае ошибки отдаем сырую ссылку
 
     async def shorten_url(self, url: str) -> str:
-        """Сокращает ссылку через TinyURL для красивых кнопок."""
+        """Сокращает ссылку через локальный Redis (FastAPI)."""
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"https://tinyurl.com/api-create.php?url={urllib.parse.quote(url)}")
-                if response.status_code == 200:
-                    return response.text.strip()
+            from web_app import generate_short_link
+            return await generate_short_link(url)
         except Exception as e:
             logger.error(f"URL Shortening error: {e}")
         return url

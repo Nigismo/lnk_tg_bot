@@ -10,3 +10,5 @@ aiofiles
 python-dotenv
 qrcode
 pillow
+fastapi
+uvicorn
