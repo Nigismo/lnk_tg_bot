@@ -248,7 +248,7 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
     # 3. МАГИЯ HAPP! Превращаем обычную ссылку в happ://crypt5
     magic_link = await happ_service.encrypt_link(
         raw_url=raw_sub_url, 
-        title="Premium_VPN", 
+        title="🇺🇸 Premium VPN", 
         limit=3  # Лимит на 3 устройства по умолчанию
     )
     
@@ -311,7 +311,7 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
                     ref_raw_sub_url = ref_marzban_user.get("links")[0]
                 if ref_raw_sub_url and not ref_raw_sub_url.startswith("http") and not ref_raw_sub_url.startswith("vless://") and not ref_raw_sub_url.startswith("vmess://") and not ref_raw_sub_url.startswith("trojan://") and not ref_raw_sub_url.startswith("ss://"):
                     ref_raw_sub_url = f"{config.MARZBAN_URL.rstrip('/')}{ref_raw_sub_url}"
-                ref_magic_link = await happ_service.encrypt_link(ref_raw_sub_url, "Premium_VPN", 3)
+                ref_magic_link = await happ_service.encrypt_link(ref_raw_sub_url, "🇺🇸 Premium VPN", 3)
                 
                 await update_subscription(session, referrer.id, ref_end_date, ref_username, ref_magic_link)
                 

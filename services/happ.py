@@ -1,5 +1,5 @@
 import urllib.parse
-import httpx
+import aiohttp
 from loguru import logger
 from bot.config import config
 
@@ -10,52 +10,85 @@ class HappService:
         self.install_api = "https://api.happ-proxy.com/api/add-install"
         self.crypto_api = "https://crypto.happ.su/api-v2.php"
 
-    async def _get_install_id(self, limit: int) -> str:
+    async def _get_install_id(self, limit: int) -> str | None:
         params = {
             "provider_code": self.provider_code,
             "auth_key": self.auth_key,
             "install_limit": limit
         }
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(self.install_api, params=params)
-            response.raise_for_status()
-            data = response.json()
-            if data.get("rc") == 1:
-                return data.get("install_code")
-            raise ValueError(f"HAPP API Error: {data.get('msg')}")
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(self.install_api, params=params, timeout=5) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if data.get("rc") == 1:
+                            install_code = data.get("install_code")
+                            logger.info(f"✅ Получен лимит устройств: {limit}, код: {install_code}")
+                            return install_code
+                        else:
+                            logger.error(f"❌ Ошибка API HAPP-Proxy: {data.get('msg')}")
+                            return None
+                    else:
+                        logger.error(f"❌ HTTP Ошибка {response.status} при запросе к HAPP-Proxy")
+                        return None
+            except Exception as e:
+                logger.error(f"❌ Ошибка сети при запросе к HAPP-Proxy: {e}")
+                return None
 
-    async def encrypt_link(self, raw_url: str, title: str, limit: int = 2) -> str:
+    async def encrypt_link(self, raw_url: str, title: str = "💎 Premium Connect", limit: int = 3) -> str:
+        """
+        Собирает идеальную ссылку: подписка + название с эмодзи + HWID лимит + DPI обход -> crypt5
+        """
         try:
             if not self.provider_code or not self.auth_key:
                 logger.warning("HAPP API keys not configured. Returning raw URL.")
                 return raw_url
 
             install_id = await self._get_install_id(limit)
+            if not install_id:
+                return raw_url
             
-            # Приклеиваем параметры для обхода DPI (фрагментация)
+            # 1. Формируем технические параметры (DPI и HWID)
             params = {
-                "fragment": "1-10,5-20,tlshello",
-                "installid": install_id
+                "installid": install_id,
+                "fragment": "1-10,5-20,tlshello" # Обход DPI
             }
-            
-            # Проверяем, есть ли уже параметры в ссылке
-            separator = "&" if "?" in raw_url else "?"
             query_string = urllib.parse.urlencode(params)
             
-            # Готовая длинная ссылка со всеми правилами
-            complex_url = f"{raw_url}{separator}{query_string}"
-            
+            # 2. Добавляем эстетику (Название и иконки)
+            # Кодируем название (urlencode), чтобы пробелы и эмодзи корректно передались по HTTP
             safe_title = urllib.parse.quote(title)
-            assembled_url = f"{complex_url}#{safe_title}"
             
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.post(self.crypto_api, json={"url": assembled_url})
-                if response.status_code == 200:
-                    encrypted_link = response.text.strip().strip('"')
-                    return encrypted_link
-                raise ConnectionError(f"Failed to encrypt URL. Status: {response.status_code}")
+            # 3. Собираем "Франкенштейна" строго по документации HAPP
+            # Формат: URL#Title?Params
+            complex_url = f"{raw_url}#{safe_title}?{query_string}"
+            logger.info(f"🔗 Подготовлена ссылка для шифрования: {complex_url}")
+            
+            # 4. Отправляем в крипто-кузницу (HAPP API v2)
+            headers = {"Content-Type": "application/json"}
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.crypto_api, 
+                    json={"url": complex_url}, 
+                    headers=headers, 
+                    timeout=5
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json(content_type=None)
+                        encrypted_link = data.get("encrypted_link")
+                        
+                        if encrypted_link:
+                            logger.info("✅ Ссылка успешно зашифрована в crypt5!")
+                            return encrypted_link
+                        else:
+                            logger.error(f"❌ Ключ 'encrypted_link' не найден: {data}")
+                            return raw_url
+                    else:
+                        logger.error(f"❌ Ошибка API HAPP: {response.status} - {await response.text()}")
+                        return raw_url
         except Exception as e:
-            logger.error(f"HAPP Encryption error: {e}")
+            logger.error(f"❌ Сетевая ошибка при шифровании HAPP: {e}")
             return raw_url # В случае ошибки отдаем сырую ссылку
 
     async def shorten_url(self, url: str) -> str:
