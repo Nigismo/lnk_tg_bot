@@ -40,12 +40,17 @@ class MarzbanAPI:
                     headers["Authorization"] = f"Bearer {self.token}"
                     response = await client.request(method, f"{self.base_url}{endpoint}", headers=headers, **kwargs)
                 
+                if response.status_code == 404:
+                    return None
+                
                 if response.status_code >= 400:
                     logger.error(f"Marzban API Error ({response.status_code}): {response.text}")
                     
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404:
+                    return None
                 logger.error(f"HTTP Error к Marzban API ({endpoint}): {e.response.text}")
                 return None
             except Exception as e:

@@ -31,20 +31,30 @@ async def cmd_start(message: Message, session: AsyncSession):
     user = await get_user(session, message.from_user.id)
     if not user:
         args = message.text.split()
-        referrer_id = int(args[1]) if len(args) > 1 and args[1].isdigit() else None
+        referrer_id = None
+        if len(args) > 1:
+            ref_arg = args[1]
+            if ref_arg.startswith("ref_"):
+                ref_arg = ref_arg[4:]
+            if ref_arg.isdigit():
+                referrer_id = int(ref_arg)
         await create_user(session, message.from_user.id, message.from_user.username, message.from_user.full_name, referrer_id)
+        if referrer_id:
+            try:
+                await message.bot.send_message(referrer_id, "🎉 По вашей ссылке зарегистрировался новый пользователь!")
+            except Exception as e:
+                logger.error(f"Не удалось отправить уведомление рефереру: {e}")
     
     text = (
-        "👋 Добро пожаловать в лучший VPN сервис!\n\n"
-        "🚀 **Стабильное соединение**\n"
-        "📺 **4K без лагов**\n"
-        "👥 Уже **15 710** пользователей выбрали нас.\n\n"
-        "Выберите действие ниже:"
+        "👋 *Добро пожаловать в Premium Connect!*\n\n"
+        "Мы предоставляем быстрый и безопасный VPN с защитой от блокировок (DPI) "
+        "и поддержкой всех современных устройств.\n\n"
+        "Выберите действие ниже 👇"
     )
     # Отправляем сначала reply клавиатуру с Web App
     await message.answer("👇 Нажмите кнопку ниже, чтобы открыть красивое приложение:", reply_markup=main_reply_kb())
     # Затем основное меню
-    await message.answer(text, reply_markup=main_menu_kb())
+    await message.answer(text, reply_markup=main_menu_kb(), parse_mode="Markdown")
 
 @router.callback_query(F.data == "buy_vpn")
 async def process_buy_vpn(callback: CallbackQuery):
@@ -55,12 +65,12 @@ async def process_buy_vpn(callback: CallbackQuery):
 async def process_back_to_main(callback: CallbackQuery):
     """Возврат в главное меню."""
     text = (
-        "👋 Добро пожаловать в лучший VPN сервис!\n\n"
-        "🚀 **Стабильное соединение**\n"
-        "📺 **4K без лагов**\n"
-        "Выберите действие ниже:"
+        "👋 *Добро пожаловать в Premium Connect!*\n\n"
+        "Мы предоставляем быстрый и безопасный VPN с защитой от блокировок (DPI) "
+        "и поддержкой всех современных устройств.\n\n"
+        "Выберите действие ниже 👇"
     )
-    await callback.message.edit_text(text, reply_markup=main_menu_kb())
+    await callback.message.edit_text(text, reply_markup=main_menu_kb(), parse_mode="Markdown")
 
 @router.callback_query(F.data == "profile")
 async def process_profile(callback: CallbackQuery, session: AsyncSession):
@@ -103,23 +113,34 @@ async def process_referral(callback: CallbackQuery, session: AsyncSession):
     user = await get_user(session, callback.from_user.id)
     
     bot_info = await callback.bot.get_me()
-    ref_link = f"https://t.me/{bot_info.username}?start={callback.from_user.id}"
+    ref_link = f"https://t.me/{bot_info.username}?start=ref_{callback.from_user.id}"
     
     # Подсчет рефералов
     from sqlalchemy import select, func
     from database.models import User
     result = await session.execute(select(func.count(User.id)).where(User.referrer_id == callback.from_user.id))
     referrals_count = result.scalar() or 0
+    earned_days = referrals_count * 15
     
     text = (
-        f"🎁 <b>Реферальная программа</b>\n\n"
-        f"Приглашайте друзей и получайте <b>1 месяц (30 дней) VPN бесплатно</b> за каждого друга, который оплатит подписку!\n\n"
-        f"🔗 Ваша реферальная ссылка:\n<code>{ref_link}</code>\n\n"
-        f"👥 Приглашено друзей: {referrals_count}"
+        "🎁 *Реферальная программа*\n\n"
+        "Приглашайте друзей и получайте бесплатный VPN!\n"
+        "За каждого друга, который оплатит любую подписку, вы получите *+15 дней* к вашему тарифу, "
+        "а ваш друг получит скидку 10% на первую покупку.\n\n"
+        f"🔗 *Ваша персональная ссылка:*\n`{ref_link}`\n\n"
+        f"👥 Приглашено друзей: *{referrals_count}*\n"
+        f"⏳ Получено дней: *{earned_days}*"
     )
     
-    from bot.keyboards.inline import back_kb
-    await callback.message.edit_text(text, reply_markup=back_kb(), parse_mode="HTML")
+    import urllib.parse
+    share_text = urllib.parse.quote("Привет! Пользуюсь этим премиум VPN, работает без перебоев. Держи ссылку!")
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    share_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚀 Поделиться с другом", url=f"https://t.me/share/url?url={ref_link}&text={share_text}")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
+    ])
+    
+    await callback.message.edit_text(text, reply_markup=share_kb, parse_mode="Markdown")
 
 @router.callback_query(F.data.startswith("tariff_"))
 async def process_tariff_selection(callback: CallbackQuery):
@@ -144,7 +165,7 @@ async def process_get_trial(callback: CallbackQuery, session: AsyncSession):
         )
         return
 
-    status_msg = await callback.message.edit_text("⏳ Генерирую тестовый ключ на 5 дней...")
+    status_msg = await callback.message.edit_text("⏳ Генерируем ваши персональные ключи доступа...")
     
     # 2. Настройки триала (5 дней)
     days = 5
@@ -289,7 +310,7 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
     if is_first_payment and user and user.referrer_id:
         referrer = await get_user(session, user.referrer_id)
         if referrer:
-            ref_days = 30 # Бонус 30 дней (1 месяц)
+            ref_days = 15 # Бонус 15 дней
             ref_now = datetime.utcnow()
             if referrer.sub_end_date and referrer.sub_end_date > ref_now:
                 ref_end_date = referrer.sub_end_date + timedelta(days=ref_days)
