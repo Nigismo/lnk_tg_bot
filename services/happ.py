@@ -59,9 +59,9 @@ class HappService:
             return raw_url # В случае ошибки отдаем сырую ссылку
 
     async def shorten_url(self, url: str) -> str:
-        """Сокращает ссылку через локальный Redis (FastAPI)."""
+        """Сокращает ссылку через локальный Redis (aiohttp)."""
         try:
-            from web_app import generate_short_link
+            from bot.main import generate_short_link
             return await generate_short_link(url)
         except Exception as e:
             logger.error(f"URL Shortening error: {e}")
