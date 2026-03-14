@@ -72,7 +72,7 @@ def vpn_links_kb(sub_url: str, short_url: str = None) -> InlineKeyboardMarkup:
     
     if short_url and short_url.startswith("http"):
         buttons.append([InlineKeyboardButton(text="🚀 Подключить в один клик", url=short_url)])
-    elif sub_url.startswith("http") or sub_url.startswith("happ://"):
+    elif sub_url.startswith("http"):
         buttons.append([InlineKeyboardButton(text="🔗 Ссылка на подписку", url=sub_url)])
         
     buttons.append([InlineKeyboardButton(text="❓ Как настроить подключение", callback_data="help_config")])

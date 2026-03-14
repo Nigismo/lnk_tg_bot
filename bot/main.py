@@ -8,25 +8,13 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 # Импортируем aiohttp для нашего легкого веб-сервера
 from aiohttp import web
-import redis.asyncio as redis
 
 from bot.config import config
 from bot.handlers import user, admin, payments
 from bot.middlewares.db import DbSessionMiddleware
 from database.models import Base
 from services.notifications import check_expiring_subscriptions
-
-DOMAIN = "https://premium-connect.duckdns.org"
-
-# Глобальный клиент Redis для сокращателя ссылок
-redis_client = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, db=0, decode_responses=True)
-
-async def generate_short_link(long_happ_url: str) -> str:
-    """Генерирует короткий ID, сохраняет в Redis и возвращает красивую ссылку"""
-    short_id = secrets.token_urlsafe(4) 
-    # Сохраняем в Redis на 30 дней (2592000 секунд)
-    await redis_client.set(f"shortlink:{short_id}", long_happ_url, ex=2592000)
-    return f"{DOMAIN}/v/{short_id}"
+from services.shortener import redis_client, generate_short_link
 
 async def redirect_to_vpn(request: web.Request):
     """aiohttp-обработчик: ловит короткую ссылку и делает редирект"""

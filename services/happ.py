@@ -53,7 +53,8 @@ class HappService:
                 "installid": install_id,
                 "fragment": "1-10,5-20,tlshello" # Обход DPI
             }
-            query_string = urllib.parse.urlencode(params)
+            # safe=',' гарантирует, что запятые не превратятся в %2C
+            query_string = urllib.parse.urlencode(params, safe=',')
             
             # 2. Добавляем эстетику (Название и иконки)
             # Кодируем название (urlencode), чтобы пробелы и эмодзи корректно передались по HTTP
@@ -92,13 +93,23 @@ class HappService:
             return raw_url # В случае ошибки отдаем сырую ссылку
 
     async def shorten_url(self, url: str) -> str:
-        """Сокращает ссылку через локальный Redis (aiohttp)."""
+        """Сокращает ссылку через локальный Redis напрямую (без кольцевых импортов)."""
+        import secrets
+        import redis.asyncio as redis
+        
         try:
-            from bot.main import generate_short_link
-            return await generate_short_link(url)
+            # Подключаемся к Redis напрямую
+            redis_client = redis.Redis(host=config.REDIS_HOST, port=config.REDIS_PORT, db=0, decode_responses=True)
+            short_id = secrets.token_urlsafe(4)
+            
+            await redis_client.set(f"shortlink:{short_id}", url, ex=2592000)
+            await redis_client.close() # Закрываем соединение
+            
+            # Используем твой домен
+            return f"https://premium-connect.duckdns.org/v/{short_id}"
         except Exception as e:
             logger.error(f"URL Shortening error: {e}")
-        return url
+            return url # В случае ошибки отдаем длинную ссылку
 
 # Инициализируем синглтон
 happ_service = HappService(provider_code=config.HAPP_PROVIDER_CODE, auth_key=config.HAPP_AUTH_KEY)

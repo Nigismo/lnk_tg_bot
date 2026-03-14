@@ -213,7 +213,7 @@ async def process_get_trial(callback: CallbackQuery, session: AsyncSession):
         instruction += (
             "2. Скопируйте ключ доступа ниже.\n"
             "3. В приложении нажмите <code>Добавить из буфера обмена</code>.\n\n"
-            "<blockquote expandable><b>Ваш ключ доступа (нажмите для копирования):</b>\n"
+            "<blockquote><b>Ваш ключ доступа (нажмите для копирования):</b>\n"
             f"<code>{sub_url}</code></blockquote>"
         )
     
@@ -221,7 +221,9 @@ async def process_get_trial(callback: CallbackQuery, session: AsyncSession):
         await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(sub_url, short_url), parse_mode="HTML")
     except Exception as e:
         logger.error(f"Error sending trial link: {e}")
-        await status_msg.edit_text(instruction, parse_mode="HTML")
+        # ВАЖНО: Если парсер HTML сломался, отправляем чистый текст без разметки!
+        safe_text = f"✅ Ваш тестовый VPN готов!\n\nСкопируйте этот ключ доступа:\n{sub_url}"
+        await status_msg.edit_text(safe_text)
 
 async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_months: str):
     """Общая функция выдачи VPN после успешной оплаты."""
@@ -295,7 +297,7 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
         instruction += (
             "2. Скопируйте ключ доступа ниже.\n"
             "3. В приложении нажмите <code>Добавить из буфера обмена</code>.\n\n"
-            "<blockquote expandable><b>Ваш ключ доступа (нажмите для копирования):</b>\n"
+            "<blockquote><b>Ваш ключ доступа (нажмите для копирования):</b>\n"
             f"<code>{magic_link}</code></blockquote>\n\n"
             "У вас доступно 3 устройства одновременно. Приятного использования!"
         )
@@ -304,7 +306,9 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
         await status_msg.edit_text(instruction, reply_markup=vpn_links_kb(magic_link, short_magic_link), parse_mode="HTML")
     except Exception as e:
         logger.error(f"Error sending paid link: {e}")
-        await status_msg.edit_text(instruction, parse_mode="HTML")
+        # ВАЖНО: Если парсер HTML сломался, отправляем чистый текст без разметки!
+        safe_text = f"✅ Ваш VPN готов!\n\nСкопируйте этот ключ доступа:\n{magic_link}"
+        await status_msg.edit_text(safe_text)
     
     # 5. Начисление бонуса рефереру
     if is_first_payment and user and user.referrer_id:
