@@ -503,3 +503,35 @@ async def handle_profile_text(message: Message, session: AsyncSession):
     
     from bot.keyboards.inline import back_kb
     await message.answer(text, reply_markup=back_kb(), parse_mode="HTML")
+
+@router.callback_query(F.data == "help_config")
+async def process_help_config(callback: CallbackQuery):
+    """Обработчик кнопки с подробной инструкцией по установке"""
+    text = (
+        "❓ <b>Как настроить подключение:</b>\n\n"
+        
+        "🍏 <b>Для iOS (iPhone / iPad):</b>\n"
+        "1️⃣ Скачайте приложение HAPP:\n"
+        "🇷🇺 <a href='https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973'>App Store (Россия)</a>\n"
+        "🌍 <a href='https://apps.apple.com/us/app/happ-proxy-utility/id6504287215'>App Store (Другие страны)</a>\n"
+        "2️⃣ Скопируйте ваш ключ доступа (который бот прислал выше).\n"
+        "3️⃣ В приложении HAPP нажмите <b>«Добавить из буфера обмена»</b> и включите VPN 🔌\n\n"
+        
+        "🤖 <b>Для Android:</b>\n"
+        "1️⃣ Скачайте приложение HAPP или V2RAYTUN:\n"
+        "▶️ <a href='https://play.google.com/store/apps/details?id=com.happproxy'>HAPP (Google Play)</a>\n"
+        "📦 <a href='https://github.com/Happ-proxy/happ-android/releases/latest/download/Happ.apk'>HAPP (Прямой APK-файл)</a>\n"
+        "⚡ <a href='https://play.google.com/store/apps/details?id=com.v2raytun.android&hl=ru'>V2RAYTUN (Google Play)</a>\n"
+        "2️⃣ Скопируйте ваш ключ доступа.\n"
+        "3️⃣ Откройте приложение, добавьте ключ из буфера обмена (кнопка ➕) и нажмите Подключиться 🔌\n\n"
+        
+        "💻 <b>Для Windows:</b>\n"
+        "1️⃣ Скачайте <a href='https://github.com/Happ-proxy/happ-desktop/releases/latest/download/setup-Happ.x64.exe'>HAPP Desktop (.exe)</a>\n"
+        "2️⃣ Установите программу, скопируйте ключ и добавьте его внутрь.\n\n"
+        
+        "<i>💡 Совет: Если вы используете короткую ссылку (http://...), просто нажмите на неё — приложение HAPP может открыться и настроиться автоматически!</i>"
+    )
+    
+    # disable_web_page_preview=True убирает огромные превью сайтов, оставляя сообщение компактным
+    await callback.message.answer(text, disable_web_page_preview=True, parse_mode="HTML")
+    await callback.answer()
