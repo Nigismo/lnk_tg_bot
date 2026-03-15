@@ -17,15 +17,45 @@ from services.notifications import check_expiring_subscriptions
 from services.shortener import redis_client, generate_short_link
 
 async def redirect_to_vpn(request: web.Request):
-    """aiohttp-обработчик: ловит короткую ссылку и делает редирект"""
+    """aiohttp-обработчик: шлюз с красивой страницей вместо белого экрана"""
     short_id = request.match_info.get('short_id')
     long_url = await redis_client.get(f"shortlink:{short_id}")
-    
+
     if not long_url:
-        return web.Response(text="❌ Ссылка устарела или не существует", status=404)
-    
-    # HTTP 302 Redirect на огромную зашифрованную ссылку HAPP
-    raise web.HTTPFound(long_url)
+        return web.Response(text="❌ Ошибка 404: Ссылка устарела или не существует", status=404)
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Premium Connect</title>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #0f172a; color: white; text-align: center; padding: 20px; box-sizing: border-box; }}
+            .card {{ background: #1e293b; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); max-width: 400px; width: 100%; border: 1px solid #334155; }}
+            h2 {{ margin-top: 0; color: #f8fafc; font-size: 1.5rem; }}
+            p {{ color: #94a3b8; line-height: 1.5; margin-bottom: 2rem; font-size: 0.95rem; }}
+            .btn {{ display: block; background: #3b82f6; color: white; text-decoration: none; padding: 1rem; border-radius: 0.5rem; font-weight: bold; font-size: 1.1rem; transition: background 0.2s; margin-bottom: 1.5rem; }}
+            .btn:hover {{ background: #2563eb; }}
+            .copy-area {{ background: #0f172a; padding: 1rem; border-radius: 0.5rem; font-size: 0.8rem; color: #64748b; word-break: break-all; border: 1px solid #334155; text-align: left; margin-top: 10px; }}
+            .copy-title {{ display: block; margin-top: 1rem; color: #94a3b8; font-weight: bold; text-align: center; font-size: 0.9rem; }}
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h2>🚀 Ваш VPN готов</h2>
+            <p>Нажмите кнопку ниже, чтобы добавить серверы. Приложение HAPP откроется автоматически.</p>
+
+            <a href="{long_url}" class="btn">🔌 Открыть в HAPP</a>
+
+            <span class="copy-title">Или скопируйте ссылку вручную:</span>
+            <div class="copy-area">{long_url}</div>
+        </div>
+    </body>
+    </html>
+    """
+    return web.Response(text=html_content, content_type='text/html')
 
 async def start_web_server():
     """Запускает встроенный aiohttp сервер"""

@@ -13,6 +13,7 @@ from bot.keyboards.inline import main_menu_kb, tariffs_kb, payment_methods_kb, v
 from services.marzban import marzban_api
 from services.happ import happ_service
 from services.payment import crypto_pay
+from services.shortener import generate_short_link
 from bot.config import config
 from loguru import logger
 
@@ -186,11 +187,8 @@ async def process_get_trial(callback: CallbackQuery, session: AsyncSession):
     if sub_url and not sub_url.startswith("http") and not sub_url.startswith("vless://") and not sub_url.startswith("vmess://") and not sub_url.startswith("trojan://") and not sub_url.startswith("ss://"):
         sub_url = f"{config.MARZBAN_URL.rstrip('/')}{sub_url}"
         
-    # Используем HAPP для шифрования ссылки
-    sub_url = await happ_service.encrypt_link(sub_url, title="🎁_Trial", limit=3)
-    
-    # Сокращаем ссылку для красивой кнопки
-    short_url = await happ_service.shorten_url(sub_url)
+    # Создаем локальную ссылку с обходом DPI и сразу сокращаем её
+    sub_url, short_url = await happ_service.create_premium_link(sub_url, title="🎁 Trial")
     
     # 4. Записываем в базу данных, что юзер получил доступ
     end_date = datetime.utcnow() + timedelta(days=days)
@@ -268,15 +266,8 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
     if raw_sub_url and not raw_sub_url.startswith("http") and not raw_sub_url.startswith("vless://") and not raw_sub_url.startswith("vmess://") and not raw_sub_url.startswith("trojan://") and not raw_sub_url.startswith("ss://"):
         raw_sub_url = f"{config.MARZBAN_URL.rstrip('/')}{raw_sub_url}"
         
-    # 3. МАГИЯ HAPP! Превращаем обычную ссылку в happ://crypt5
-    magic_link = await happ_service.encrypt_link(
-        raw_url=raw_sub_url, 
-        title="🇺🇸 Premium VPN", 
-        limit=3  # Лимит на 3 устройства по умолчанию
-    )
-    
-    # Сокращаем ссылку для красивой кнопки
-    short_magic_link = await happ_service.shorten_url(magic_link)
+    # 3. Вшиваем обход DPI и создаем локальную короткую ссылку
+    magic_link, short_magic_link = await happ_service.create_premium_link(raw_sub_url, title="🇺🇸 Premium VPN")
     
     await update_subscription(session, user_id, end_date, username, magic_link)
     
@@ -336,7 +327,7 @@ async def issue_vpn_access(bot, user_id: int, session: AsyncSession, tariff_mont
                     ref_raw_sub_url = ref_marzban_user.get("links")[0]
                 if ref_raw_sub_url and not ref_raw_sub_url.startswith("http") and not ref_raw_sub_url.startswith("vless://") and not ref_raw_sub_url.startswith("vmess://") and not ref_raw_sub_url.startswith("trojan://") and not ref_raw_sub_url.startswith("ss://"):
                     ref_raw_sub_url = f"{config.MARZBAN_URL.rstrip('/')}{ref_raw_sub_url}"
-                ref_magic_link = await happ_service.encrypt_link(ref_raw_sub_url, "🇺🇸 Premium VPN", 3)
+                ref_magic_link, _ = await happ_service.create_premium_link(ref_raw_sub_url, "🇺🇸 Premium VPN")
                 
                 await update_subscription(session, referrer.id, ref_end_date, ref_username, ref_magic_link)
                 
@@ -359,7 +350,7 @@ async def process_pay_sbp(callback: CallbackQuery):
     price = TARIFFS[tariff_months]["price"]
     
     payment_link = "https://www.sberbank.ru/ru/choise_bank?requisiteNumber=79270920073&bankCode=100000000111"
-    short_payment_link = await happ_service.shorten_url(payment_link)
+    short_payment_link = await generate_short_link(payment_link)
     
     text = (
         f"📱 <b>Оплата по СБП</b>\n\n"
