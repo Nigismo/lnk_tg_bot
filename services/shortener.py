@@ -3,7 +3,7 @@ import redis.asyncio as redis
 from loguru import logger
 from bot.config import config
 
-DOMAIN = "https://premium-connect.duckdns.org"
+DOMAIN = "http://premium-connect.duckdns.org:8080"
 
 # Глобальный клиент Redis для сокращателя ссылок
 redis_client = redis.Redis(
